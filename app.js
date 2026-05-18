@@ -1,4 +1,4 @@
-// FIREBASE IMPORTS (使用 CDN 確保 Vanilla JS 可運行)
+// FIREBASE IMPORTS
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
 import { getFirestore, collection, addDoc, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
@@ -64,7 +64,6 @@ async function syncData() {
   localStorage.setItem('shadow_library', JSON.stringify(library));
   localStorage.setItem('shadow_vocab', JSON.stringify(vocabDB));
   try {
-    // 儲存到個人的 Document 中
     await setDoc(doc(db, "personal_data", "my_data"), {
       library: library,
       vocabDB: vocabDB
@@ -116,7 +115,7 @@ function populateVoices() {
 }
 window.speechSynthesis.onvoiceschanged = populateVoices;
 populateVoices();
-setTimeout(populateVoices, 500); // 確保某些瀏覽器能成功載入
+setTimeout(populateVoices, 500);
 
 // --- KPI System ---
 function loadKPIs() {
@@ -135,11 +134,9 @@ function loadKPIs() {
     document.getElementById('label-sentences').innerText = "Text Sentences";
     document.getElementById('label-attempts').innerText = "Text Attempts";
     
-    // 計算當前文本的總句數
     let textSentences = textData.text.match(/[^.?!]+[.?!]+/g) || textData.text.split('\n');
     textSentences = textSentences.map(s => s.trim()).filter(s => s.length > 0);
     document.getElementById('kpi-sentences').innerText = textSentences.length;
-    
     document.getElementById('kpi-attempts').innerText = textData?.stats?.attempts || 0;
   } else {
     document.getElementById('label-sentences').innerText = "Total Sentences";
@@ -190,29 +187,38 @@ function saveToLibrary(text) {
 function renderLibrary() {
   const q = document.getElementById('search-input').value.toLowerCase();
   const sortQ = document.getElementById('sort-select').value;
+  const filterQ = document.getElementById('filter-select').value;
 
-  let filtered = library.filter(i => i.text.toLowerCase().includes(q));
+  let filtered = library.filter(i => {
+    const matchSearch = i.text.toLowerCase().includes(q);
+    const matchFilter = filterQ === 'all' || i.status === filterQ;
+    return matchSearch && matchFilter;
+  });
   
   filtered.sort((a, b) => {
     if (sortQ === 'edit-desc') return (b.updatedAt || b.createdAt) - (a.updatedAt || a.createdAt);
     if (sortQ === 'edit-asc') return (a.updatedAt || a.createdAt) - (b.updatedAt || b.createdAt);
+    if (sortQ === 'length-desc') return b.text.length - a.text.length;
+    if (sortQ === 'length-asc') return a.text.length - b.text.length;
     return 0;
   });
 
-  document.getElementById('library-list').innerHTML = filtered.map(item => `
+  document.getElementById('library-list').innerHTML = filtered.map(item => {
+    const dateStr = new Date(item.updatedAt || item.createdAt).toLocaleString();
+    return `
     <div class="lib-card glass" onclick="loadTextToPractice('${item.id}')">
       <div class="lib-text">${item.text}</div>
       <div class="lib-meta">
         <span class="badge ${item.status}">${item.status}</span>
         <span>Attempts: ${item.stats?.attempts || 0}</span>
-        <span>${new Date(item.updatedAt || item.createdAt).toLocaleDateString()}</span>
+        <span>${dateStr}</span>
         <div class="lib-actions" style="display:flex; gap:10px;">
           <button class="btn icon-text-btn" onclick="openEditLibModal('${item.id}', event)">Edit</button>
           <button class="btn icon-text-btn" style="color:var(--danger);" onclick="deleteLibraryText('${item.id}', event)">Del</button>
         </div>
       </div>
     </div>
-  `).join('');
+  `}).join('');
 }
 
 window.loadTextToPractice = (id) => {
@@ -231,6 +237,7 @@ window.openEditLibModal = (id, event) => {
   if (item) {
     editingLibId = id;
     document.getElementById('edit-lib-textarea').value = item.text;
+    document.getElementById('edit-lib-status').value = item.status || 'learning';
     document.getElementById('edit-lib-modal').classList.add('active');
   }
 };
@@ -239,6 +246,7 @@ document.getElementById('btn-save-lib-edit').onclick = () => {
   const item = library.find(i => i.id === editingLibId);
   if (item) {
     item.text = document.getElementById('edit-lib-textarea').value.trim();
+    item.status = document.getElementById('edit-lib-status').value;
     item.updatedAt = Date.now();
     syncData();
     renderLibrary();
@@ -256,6 +264,7 @@ window.deleteLibraryText = (id, event) => {
 };
 
 document.getElementById('sort-select').addEventListener('change', renderLibrary);
+document.getElementById('filter-select').addEventListener('change', renderLibrary);
 
 // --- Vocab & SRS System ---
 const SRS_INTERVALS = [0, 1, 3, 7, 14, 999]; 
@@ -552,4 +561,58 @@ btnExit.addEventListener('click', () => {
 btnToggleMarkup.addEventListener('click', () => {
   showMarkup = !showMarkup;
   btnToggleMarkup.style.color = showMarkup ? 'var(--accent)' : 'var(--text-muted)';
-  if (sente
+  if (sentences.length > 0) currentSentenceEl.innerHTML = analyzeSentence(sentences[currentIndex], showMarkup);
+});
+
+btnNext.addEventListener('click', () => { if (currentIndex < sentences.length - 1) { currentIndex++; playCurrentSentence(); } });
+btnBack.addEventListener('click', () => { if (currentIndex > 0) { currentIndex--; playCurrentSentence(); } });
+btnReplay.addEventListener('click', playCurrentSentence);
+btnSpeak.addEventListener('click', () => { window.speechSynthesis.cancel(); clearTimeout(timerId); startRecording(); });
+
+currentSentenceEl.addEventListener('click', (e) => {
+  const wordSpan = e.target.closest('.word');
+  if (!wordSpan) return;
+  const startIndex = parseInt(wordSpan.getAttribute('data-index'));
+  const words = sentences[currentIndex].split(' ');
+  let endIndex = startIndex;
+  for (let i = startIndex; i < words.length; i++) {
+    let w = words[i], nw = words[i+1] ? words[i+1].replace(/[^\w]/g, '').toLowerCase() : '';
+    if (w.match(/[,.;:!?]/) || (nw && ['and','but','or','because','if','when'].includes(nw)) || i === words.length - 1) { endIndex = i; break; }
+  }
+  window.speechSynthesis.cancel();
+  const utterance = new SpeechSynthesisUtterance(words.slice(startIndex, endIndex + 1).join(' '));
+  utterance.lang = 'en-US'; utterance.rate = LEVEL_CONFIG[mode].rate;
+  const selectedVoice = availableVoices.find(v => v.voiceURI === voiceSelect.value);
+  if (selectedVoice) utterance.voice = selectedVoice;
+  window.speechSynthesis.speak(utterance);
+});
+
+function togglePauseResume() {
+  if (window.speechSynthesis.speaking) {
+    if (isPaused) { window.speechSynthesis.resume(); isPaused = false; btnPause.innerText = "⏸"; statusText.innerText = "🎧 LISTEN"; statusText.style.color = 'var(--accent)'; }
+    else { window.speechSynthesis.pause(); isPaused = true; btnPause.innerText = "▶️"; statusText.innerText = "⏸ PAUSED"; statusText.style.color = 'var(--text-muted)'; }
+  }
+}
+btnPause.addEventListener('click', togglePauseResume);
+
+document.addEventListener('keydown', (e) => {
+  if (!screens.training.classList.contains('active')) return;
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+  if (e.code === 'Space') { e.preventDefault(); togglePauseResume(); }
+  else if (e.code === 'KeyA') btnBack.click();
+  else if (e.code === 'KeyS') btnReplay.click();
+  else if (e.code === 'KeyD') btnNext.click();
+});
+
+// Init
+loadKPIs(); 
+renderLibrary(); 
+renderVocab();
+document.getElementById('search-input').addEventListener('input', renderLibrary);
+document.getElementById('vocab-search').addEventListener('input', renderVocab);
+
+loadFirebaseData();
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(()=>{}));
+}
