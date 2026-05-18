@@ -1,11 +1,11 @@
 // sw.js
-const CACHE_NAME = 'shadow-pro-v9';
+const CACHE_NAME = 'shadow-pro-v10';
 const ASSETS = [
-  '/',
-  '/index.html',
-  '/style.css',
-  '/app.js',
-  '/manifest.json'
+  './',
+  './index.html',
+  './style.css',
+  './app.js',
+  './manifest.json'
 ];
 
 self.addEventListener('install', (e) => {
@@ -17,10 +17,7 @@ self.addEventListener('install', (e) => {
 self.addEventListener('fetch', (e) => {
   e.respondWith(
     caches.match(e.request).then(response => {
-      // Use cache if offline, otherwise fetch and return
       return response || fetch(e.request);
-    }).catch(() => {
-      // Fallback behavior if fully offline
-    })
+    }).catch(() => {})
   );
 });
