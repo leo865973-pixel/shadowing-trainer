@@ -1,3 +1,20 @@
+// FIREBASE IMPORTS (使用 CDN 確保 Vanilla JS 可運行)
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+import { getFirestore, collection, addDoc, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCxP07UyljApuiaz3EQXvZrkKZguA870wA",
+  authDomain: "shadow-training-tool.firebaseapp.com",
+  databaseURL: "https://shadow-training-tool-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "shadow-training-tool",
+  storageBucket: "shadow-training-tool.firebasestorage.app",
+  messagingSenderId: "432658667170",
+  appId: "1:432658667170:web:80ec24927d0d2a72f529fb"
+};
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const sessionId = 'session_' + Math.random().toString(36).substr(2, 9);
+
 // DOM Elements
 const screens = {
   setup: document.getElementById('setup-screen'),
@@ -20,7 +37,6 @@ const statusText = document.getElementById('status-text');
 const userTranscript = document.getElementById('user-transcript');
 const voiceSelect = document.getElementById('voice-select');
 
-// 嚴格對齊所有按鈕 ID
 const btnStart = document.getElementById('btn-start');
 const btnExit = document.getElementById('btn-exit');
 const btnNext = document.getElementById('btn-next');
@@ -40,6 +56,41 @@ let showMarkup = false;
 let currentTextId = null; 
 let vocabShadowingMode = null; 
 
+// --- Data Storage & Firebase Sync ---
+let library = JSON.parse(localStorage.getItem('shadow_library')) || [];
+let vocabDB = JSON.parse(localStorage.getItem('shadow_vocab')) || [];
+
+async function syncData() {
+  localStorage.setItem('shadow_library', JSON.stringify(library));
+  localStorage.setItem('shadow_vocab', JSON.stringify(vocabDB));
+  try {
+    // 儲存到個人的 Document 中
+    await setDoc(doc(db, "personal_data", "my_data"), {
+      library: library,
+      vocabDB: vocabDB
+    });
+  } catch (e) {
+    console.warn("Firebase sync failed", e);
+  }
+}
+
+async function loadFirebaseData() {
+  try {
+    const docSnap = await getDoc(doc(db, "personal_data", "my_data"));
+    if (docSnap.exists()) {
+      const data = docSnap.data();
+      if (data.library) library = data.library;
+      if (data.vocabDB) vocabDB = data.vocabDB;
+      localStorage.setItem('shadow_library', JSON.stringify(library));
+      localStorage.setItem('shadow_vocab', JSON.stringify(vocabDB));
+      renderLibrary();
+      renderVocab();
+    }
+  } catch (e) {
+    console.warn("Firebase load failed", e);
+  }
+}
+
 // Speech Recognition & Synthesis
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 const recognition = SpeechRecognition ? new SpeechRecognition() : null;
@@ -47,7 +98,8 @@ if (recognition) { recognition.continuous = false; recognition.interimResults = 
 
 const LEVEL_CONFIG = { beginner: { rate: 0.8, pauseMs: 3000, autoNext: false }, normal: { rate: 1.0, pauseMs: 2000, autoNext: false }, fluency: { rate: 1.2, pauseMs: 500, autoNext: true } };
 let availableVoices = [];
-window.speechSynthesis.onvoiceschanged = () => {
+
+function populateVoices() {
   availableVoices = window.speechSynthesis.getVoices();
   const enVoices = availableVoices.filter(v => v.lang.startsWith('en'));
   if (enVoices.length > 0) {
@@ -57,12 +109,14 @@ window.speechSynthesis.onvoiceschanged = () => {
       if (label.includes('Natural') || label.includes('Online')) label = '⭐ ' + label;
       voiceSelect.add(new Option(label, v.voiceURI));
     });
+  } else if (availableVoices.length > 0) {
+    voiceSelect.innerHTML = '';
+    availableVoices.forEach(v => voiceSelect.add(new Option(v.name, v.voiceURI)));
   }
-};
-
-// --- Data Storage ---
-let library = JSON.parse(localStorage.getItem('shadow_library')) || [];
-let vocabDB = JSON.parse(localStorage.getItem('shadow_vocab')) || [];
+}
+window.speechSynthesis.onvoiceschanged = populateVoices;
+populateVoices();
+setTimeout(populateVoices, 500); // 確保某些瀏覽器能成功載入
 
 // --- KPI System ---
 function loadKPIs() {
@@ -80,7 +134,12 @@ function loadKPIs() {
     const textData = library.find(t => t.id === currentTextId);
     document.getElementById('label-sentences').innerText = "Text Sentences";
     document.getElementById('label-attempts').innerText = "Text Attempts";
-    document.getElementById('kpi-sentences').innerText = textData?.stats?.sentences || 0;
+    
+    // 計算當前文本的總句數
+    let textSentences = textData.text.match(/[^.?!]+[.?!]+/g) || textData.text.split('\n');
+    textSentences = textSentences.map(s => s.trim()).filter(s => s.length > 0);
+    document.getElementById('kpi-sentences').innerText = textSentences.length;
+    
     document.getElementById('kpi-attempts').innerText = textData?.stats?.attempts || 0;
   } else {
     document.getElementById('label-sentences').innerText = "Total Sentences";
@@ -95,7 +154,7 @@ window.resetKPI = (type) => {
   if (type === 'streak') localStorage.setItem('streak', '0');
   else if (currentTextId) {
     const textData = library.find(t => t.id === currentTextId);
-    if (textData) { textData.stats[type] = 0; localStorage.setItem('shadow_library', JSON.stringify(library)); }
+    if (textData) { textData.stats[type] = 0; syncData(); }
   } else {
     localStorage.setItem(type === 'sentences' ? 'totalSentences' : 'totalAttempts', '0');
   }
@@ -109,7 +168,7 @@ function updateKPI(type) {
     if (textData) {
       if (!textData.stats) textData.stats = { sentences: 0, attempts: 0 };
       textData.stats[type === 'totalSentences' ? 'sentences' : 'attempts']++;
-      localStorage.setItem('shadow_library', JSON.stringify(library));
+      syncData();
     }
   }
   loadKPIs();
@@ -121,21 +180,36 @@ function saveToLibrary(text) {
   if (!cleanText) return null;
   let item = library.find(i => i.text === cleanText);
   if (!item) {
-    item = { id: 'txt_' + Date.now(), text: cleanText, status: 'learning', createdAt: Date.now(), stats: { sentences: 0, attempts: 0 } };
+    item = { id: 'txt_' + Date.now(), text: cleanText, status: 'learning', createdAt: Date.now(), updatedAt: Date.now(), stats: { sentences: 0, attempts: 0 } };
     library.push(item);
-    localStorage.setItem('shadow_library', JSON.stringify(library));
+    syncData();
   }
   return item.id;
 }
 
 function renderLibrary() {
   const q = document.getElementById('search-input').value.toLowerCase();
-  document.getElementById('library-list').innerHTML = library.filter(i => i.text.toLowerCase().includes(q)).map(item => `
+  const sortQ = document.getElementById('sort-select').value;
+
+  let filtered = library.filter(i => i.text.toLowerCase().includes(q));
+  
+  filtered.sort((a, b) => {
+    if (sortQ === 'edit-desc') return (b.updatedAt || b.createdAt) - (a.updatedAt || a.createdAt);
+    if (sortQ === 'edit-asc') return (a.updatedAt || a.createdAt) - (b.updatedAt || b.createdAt);
+    return 0;
+  });
+
+  document.getElementById('library-list').innerHTML = filtered.map(item => `
     <div class="lib-card glass" onclick="loadTextToPractice('${item.id}')">
       <div class="lib-text">${item.text}</div>
       <div class="lib-meta">
         <span class="badge ${item.status}">${item.status}</span>
         <span>Attempts: ${item.stats?.attempts || 0}</span>
+        <span>${new Date(item.updatedAt || item.createdAt).toLocaleDateString()}</span>
+        <div class="lib-actions" style="display:flex; gap:10px;">
+          <button class="btn icon-text-btn" onclick="openEditLibModal('${item.id}', event)">Edit</button>
+          <button class="btn icon-text-btn" style="color:var(--danger);" onclick="deleteLibraryText('${item.id}', event)">Del</button>
+        </div>
       </div>
     </div>
   `).join('');
@@ -148,6 +222,40 @@ window.loadTextToPractice = (id) => {
     loadKPIs(); switchTab('practice');
   }
 };
+
+// Library Edit & Delete
+let editingLibId = null;
+window.openEditLibModal = (id, event) => {
+  event.stopPropagation();
+  const item = library.find(i => i.id === id);
+  if (item) {
+    editingLibId = id;
+    document.getElementById('edit-lib-textarea').value = item.text;
+    document.getElementById('edit-lib-modal').classList.add('active');
+  }
+};
+
+document.getElementById('btn-save-lib-edit').onclick = () => {
+  const item = library.find(i => i.id === editingLibId);
+  if (item) {
+    item.text = document.getElementById('edit-lib-textarea').value.trim();
+    item.updatedAt = Date.now();
+    syncData();
+    renderLibrary();
+    document.getElementById('edit-lib-modal').classList.remove('active');
+  }
+};
+
+window.deleteLibraryText = (id, event) => {
+  event.stopPropagation();
+  if(confirm("Delete this text?")) {
+    library = library.filter(i => i.id !== id);
+    syncData();
+    renderLibrary();
+  }
+};
+
+document.getElementById('sort-select').addEventListener('change', renderLibrary);
 
 // --- Vocab & SRS System ---
 const SRS_INTERVALS = [0, 1, 3, 7, 14, 999]; 
@@ -186,7 +294,7 @@ window.openVocabDetail = (id) => {
   document.getElementById('btn-vd-delete').onclick = () => {
     if(confirm("Delete word?")) { 
       vocabDB = vocabDB.filter(x => x.id !== id); 
-      localStorage.setItem('shadow_vocab', JSON.stringify(vocabDB)); 
+      syncData(); 
       document.getElementById('vocab-detail-modal').classList.remove('active');
       renderVocab(); 
     }
@@ -219,12 +327,12 @@ document.getElementById('btn-save-vocab').onclick = () => {
     example: document.getElementById('v-example').value, sourceTextId: currentTextId,
     level: 0, mistakes: 0, isWeak: false, addedAt: Date.now(), nextReview: Date.now()
   });
-  localStorage.setItem('shadow_vocab', JSON.stringify(vocabDB));
+  syncData();
   document.getElementById('vocab-modal').classList.remove('active');
   renderVocab(); alert("Added to Vocab!");
 };
 
-// SRS Review Logic (無限制 15 張卡片)
+// SRS Review Logic
 let reviewQueue = [];
 let currentReviewWord = null;
 let reviewTotal = 0;
@@ -232,7 +340,6 @@ let reviewTotal = 0;
 document.getElementById('btn-start-review').onclick = () => {
   if (vocabDB.length === 0) return alert("Your vocabulary is empty!");
   
-  // 優先抓取需要複習的，如果不夠就隨機抓，總共最多 15 個
   let sortedDB = [...vocabDB].sort((a, b) => a.nextReview - b.nextReview);
   reviewQueue = sortedDB.slice(0, 15);
   reviewTotal = reviewQueue.length;
@@ -277,7 +384,7 @@ window.processReview = (remembered) => {
     if (v.mistakes >= 3) v.isWeak = true;
   }
   v.nextReview = Date.now() + (SRS_INTERVALS[v.level] * 86400000);
-  localStorage.setItem('shadow_vocab', JSON.stringify(vocabDB));
+  syncData();
   
   reviewQueue.shift(); 
   showNextReviewCard();
@@ -318,7 +425,7 @@ document.getElementById('btn-return-vocab').onclick = () => {
   switchTab('vocab');
 };
 
-// --- Core Training Engine (含文本解析與高亮) ---
+// --- Core Training Engine ---
 function analyzeSentence(sentence, showMarkup) {
   const functionWords = new Set(['a','an','the','and','but','or','for','nor','so','yet','at','by','in','of','on','to','with','as','from','into','like','over','after','before','between','out','up','down','he','she','it','they','we','you','i','me','him','her','us','them','my','your','his','its','our','their','is','am','are','was','were','be','been','being','have','has','had','do','does','did','can','could','shall','should','will','would','may','might','must','this','that','these','those']);
   const vowels = ['a','e','i','o','u'];
@@ -376,6 +483,7 @@ function playCurrentSentence() {
 
   utterance.onend = () => {
     updateKPI('totalSentences');
+    addDoc(collection(db, "sessions"), { sentence: text, mode: mode, timestamp: Date.now(), sessionId: sessionId }).catch(()=>{});
     setMetronomeState('paused');
     timerId = setTimeout(startRecording, LEVEL_CONFIG[mode].pauseMs);
   };
@@ -444,55 +552,4 @@ btnExit.addEventListener('click', () => {
 btnToggleMarkup.addEventListener('click', () => {
   showMarkup = !showMarkup;
   btnToggleMarkup.style.color = showMarkup ? 'var(--accent)' : 'var(--text-muted)';
-  if (sentences.length > 0) currentSentenceEl.innerHTML = analyzeSentence(sentences[currentIndex], showMarkup);
-});
-
-btnNext.addEventListener('click', () => { if (currentIndex < sentences.length - 1) { currentIndex++; playCurrentSentence(); } });
-btnBack.addEventListener('click', () => { if (currentIndex > 0) { currentIndex--; playCurrentSentence(); } });
-btnReplay.addEventListener('click', playCurrentSentence);
-btnSpeak.addEventListener('click', () => { window.speechSynthesis.cancel(); clearTimeout(timerId); startRecording(); });
-
-// Chunk Playback (點擊單字發音)
-currentSentenceEl.addEventListener('click', (e) => {
-  const wordSpan = e.target.closest('.word');
-  if (!wordSpan) return;
-  const startIndex = parseInt(wordSpan.getAttribute('data-index'));
-  const words = sentences[currentIndex].split(' ');
-  let endIndex = startIndex;
-  for (let i = startIndex; i < words.length; i++) {
-    let w = words[i], nw = words[i+1] ? words[i+1].replace(/[^\w]/g, '').toLowerCase() : '';
-    if (w.match(/[,.;:!?]/) || (nw && ['and','but','or','because','if','when'].includes(nw)) || i === words.length - 1) { endIndex = i; break; }
-  }
-  window.speechSynthesis.cancel();
-  const utterance = new SpeechSynthesisUtterance(words.slice(startIndex, endIndex + 1).join(' '));
-  utterance.lang = 'en-US'; utterance.rate = LEVEL_CONFIG[mode].rate;
-  const selectedVoice = availableVoices.find(v => v.voiceURI === voiceSelect.value);
-  if (selectedVoice) utterance.voice = selectedVoice;
-  window.speechSynthesis.speak(utterance);
-});
-
-function togglePauseResume() {
-  if (window.speechSynthesis.speaking) {
-    if (isPaused) { window.speechSynthesis.resume(); isPaused = false; btnPause.innerText = "⏸"; statusText.innerText = "🎧 LISTEN"; statusText.style.color = 'var(--accent)'; }
-    else { window.speechSynthesis.pause(); isPaused = true; btnPause.innerText = "▶️"; statusText.innerText = "⏸ PAUSED"; statusText.style.color = 'var(--text-muted)'; }
-  }
-}
-btnPause.addEventListener('click', togglePauseResume);
-
-document.addEventListener('keydown', (e) => {
-  if (!screens.training.classList.contains('active')) return;
-  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-  if (e.code === 'Space') { e.preventDefault(); togglePauseResume(); }
-  else if (e.code === 'KeyA') btnBack.click();
-  else if (e.code === 'KeyS') btnReplay.click();
-  else if (e.code === 'KeyD') btnNext.click();
-});
-
-// Init
-loadKPIs(); renderLibrary(); renderVocab();
-document.getElementById('search-input').addEventListener('input', renderLibrary);
-document.getElementById('vocab-search').addEventListener('input', renderVocab);
-
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(()=>{}));
-}
+  if (sente

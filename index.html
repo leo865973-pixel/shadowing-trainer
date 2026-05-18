@@ -28,7 +28,8 @@
         <div class="kpi-label">Day Streak</div>
       </div>
       <div class="kpi-card glass">
-        <div class="kpi-value"><span id="kpi-sentences">0</span> <button class="reset-btn" onclick="resetKPI('sentences')">↺</button></div>
+        <!-- 移除了 Sentences 的歸零按鈕 -->
+        <div class="kpi-value"><span id="kpi-sentences">0</span></div>
         <div class="kpi-label" id="label-sentences">Total Sentences</div>
       </div>
       <div class="kpi-card glass">
@@ -56,6 +57,13 @@
   <div id="library-screen" class="screen">
     <div class="library-header glass">
       <input type="text" id="search-input" placeholder="Search texts...">
+      <!-- 加入了排序選單 -->
+      <div style="margin-top: 10px;">
+        <select id="sort-select" class="modal-input" style="margin-bottom: 0; padding: 8px;">
+          <option value="edit-desc">Sort: Newest Edited</option>
+          <option value="edit-asc">Sort: Oldest Edited</option>
+        </select>
+      </div>
     </div>
     <div id="library-list" class="library-list"></div>
   </div>
@@ -156,7 +164,7 @@
     </div>
   </div>
 
-  <!-- Vocab Detail Modal (Apple Style) -->
+  <!-- Vocab Detail Modal -->
   <div id="vocab-detail-modal" class="modal-overlay">
     <div class="modal-content glass detail-modal">
       <div class="detail-header">
@@ -176,6 +184,18 @@
         <button class="btn secondary-btn" onclick="document.getElementById('vocab-detail-modal').classList.remove('active')">Close</button>
         <button id="btn-vd-shadow" class="btn primary-btn" style="background: var(--accent);">🎯 Shadow</button>
         <button id="btn-vd-delete" class="btn secondary-btn" style="color: var(--danger);">Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit Library Text Modal -->
+  <div id="edit-lib-modal" class="modal-overlay">
+    <div class="modal-content glass">
+      <h3>Edit Text</h3>
+      <textarea id="edit-lib-textarea" class="modal-input" style="height: 150px;"></textarea>
+      <div class="modal-actions">
+        <button class="btn secondary-btn" onclick="document.getElementById('edit-lib-modal').classList.remove('active')">Cancel</button>
+        <button id="btn-save-lib-edit" class="btn primary-btn">Save</button>
       </div>
     </div>
   </div>
