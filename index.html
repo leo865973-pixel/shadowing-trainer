@@ -64,15 +64,15 @@
   <div id="vocab-screen" class="screen">
     <div class="vocab-dashboard glass">
       <div class="vocab-stats">
-        <div><h2 id="vocab-due">0</h2><p>Due Today</p></div>
-        <div><h2 id="vocab-weak" style="color: #ff3b30;">0</h2><p>Weak Words</p></div>
+        <div><h2 id="vocab-total">0</h2><p>Total Words</p></div>
+        <div><h2 id="vocab-weak" style="color: var(--danger);">0</h2><p>Weak Words</p></div>
       </div>
-      <button id="btn-start-review" class="btn primary-btn">Start SRS Review</button>
+      <button id="btn-start-review" class="btn primary-btn">Practice 15 Cards</button>
     </div>
     <div class="library-header glass" style="margin-top: 20px;">
       <input type="text" id="vocab-search" placeholder="Search vocabulary...">
     </div>
-    <div id="vocab-list" class="library-list"></div>
+    <div id="vocab-list" class="vocab-grid"></div>
   </div>
 
   <!-- 畫面 4：REVIEW SCREEN (SRS 複習卡片) -->
@@ -80,21 +80,28 @@
     <header class="training-header glass">
       <button id="btn-exit-review" class="btn icon-text-btn">✕ Exit</button>
       <div class="progress-container"><div id="review-progress" class="progress-bar"></div></div>
-      <div id="review-counter" class="counter">0/0</div>
+      <div id="review-counter" class="counter">0/15</div>
     </header>
-    <div class="flashcard glass" id="flashcard">
-      <h2 id="fc-word" class="fc-word">Word</h2>
-      <button id="btn-fc-voice" class="btn icon-btn" style="margin: 10px auto;">🔊</button>
-      <div id="fc-answer" class="fc-answer hidden">
-        <span id="fc-pos" class="badge familiar">noun</span>
-        <p id="fc-trans" class="fc-trans">中文解釋</p>
-        <p id="fc-example" class="fc-example">Example sentence goes here.</p>
+    
+    <div class="flashcard-container">
+      <div class="flashcard glass" id="flashcard">
+        <div class="fc-front">
+          <h2 id="fc-word" class="fc-word">Word</h2>
+          <button id="btn-fc-voice" class="btn icon-btn fc-voice-btn">🔊</button>
+        </div>
+        <div id="fc-answer" class="fc-answer hidden">
+          <div class="divider"></div>
+          <span id="fc-pos" class="badge">noun</span>
+          <p id="fc-trans" class="fc-trans">中文解釋</p>
+          <p id="fc-example" class="fc-example">Example sentence goes here.</p>
+        </div>
       </div>
     </div>
-    <button id="btn-show-answer" class="btn primary-btn" style="margin-top: 20px;">Show Answer</button>
+
+    <button id="btn-show-answer" class="btn primary-btn fc-action-btn">Show Answer</button>
     <div id="srs-controls" class="srs-controls hidden">
-      <button class="btn srs-btn fail" onclick="processReview(0)">Forgot<br><small>Review Tomorrow</small></button>
-      <button class="btn srs-btn pass" onclick="processReview(1)">Remember<br><small>Level Up</small></button>
+      <button class="btn srs-btn fail" onclick="processReview(0)">Forgot</button>
+      <button class="btn srs-btn pass" onclick="processReview(1)">Remember</button>
     </div>
   </div>
 
@@ -102,11 +109,10 @@
   <div id="training-screen" class="screen">
     <header class="training-header glass">
       <button id="btn-exit" class="btn icon-text-btn">✕ Exit</button>
-      <button id="btn-return-vocab" class="btn icon-text-btn hidden" style="color: var(--accent);">🔙 Back to Vocab</button>
-      <!-- ✨ 這裡補回了遺失的 Parse 按鈕 ✨ -->
+      <button id="btn-return-vocab" class="btn icon-text-btn hidden" style="color: var(--accent);">🔙 Back</button>
       <button id="btn-toggle-markup" class="btn icon-text-btn">👁️ Parse</button>
       <div class="progress-container"><div id="progress-bar" class="progress-bar"></div></div>
-      <button id="btn-add-vocab" class="btn icon-text-btn">➕ Add Vocab</button>
+      <button id="btn-add-vocab" class="btn icon-text-btn">➕ Vocab</button>
     </header>
 
     <div class="training-container">
@@ -134,7 +140,7 @@
     <div class="modal-content glass">
       <h3>Add to Vocabulary</h3>
       <input type="text" id="v-word" placeholder="Word / Phrase" class="modal-input">
-      <input type="text" id="v-trans" placeholder="Chinese Translation (中文解釋)" class="modal-input">
+      <input type="text" id="v-trans" placeholder="Chinese Translation" class="modal-input">
       <select id="v-pos" class="modal-input">
         <option value="noun">Noun (名詞)</option>
         <option value="verb">Verb (動詞)</option>
@@ -146,6 +152,30 @@
       <div class="modal-actions">
         <button class="btn secondary-btn" onclick="document.getElementById('vocab-modal').classList.remove('active')">Cancel</button>
         <button id="btn-save-vocab" class="btn primary-btn">Save Word</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Vocab Detail Modal (Apple Style) -->
+  <div id="vocab-detail-modal" class="modal-overlay">
+    <div class="modal-content glass detail-modal">
+      <div class="detail-header">
+        <h2 id="vd-word">Word</h2>
+        <button class="btn icon-btn" onclick="playVoice(document.getElementById('vd-word').innerText)">🔊</button>
+      </div>
+      <span id="vd-pos" class="badge">noun</span>
+      <p id="vd-trans" class="vd-trans">Translation</p>
+      <div class="vd-example-box">
+        <p id="vd-example">Example sentence</p>
+      </div>
+      <div class="vd-meta">
+        <span id="vd-level">Level: 0</span>
+        <span id="vd-status"></span>
+      </div>
+      <div class="modal-actions">
+        <button class="btn secondary-btn" onclick="document.getElementById('vocab-detail-modal').classList.remove('active')">Close</button>
+        <button id="btn-vd-shadow" class="btn primary-btn" style="background: var(--accent);">🎯 Shadow</button>
+        <button id="btn-vd-delete" class="btn secondary-btn" style="color: var(--danger);">Delete</button>
       </div>
     </div>
   </div>

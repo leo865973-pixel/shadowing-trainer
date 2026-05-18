@@ -1,20 +1,3 @@
-// FIREBASE IMPORTS
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
-import { getFirestore, collection, addDoc } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
-
-const firebaseConfig = {
-  apiKey: "AIzaSyCxP07UyljApuiaz3EQXvZrkKZguA870wA",
-  authDomain: "shadow-training-tool.firebaseapp.com",
-  databaseURL: "https://shadow-training-tool-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "shadow-training-tool",
-  storageBucket: "shadow-training-tool.firebasestorage.app",
-  messagingSenderId: "432658667170",
-  appId: "1:432658667170:web:80ec24927d0d2a72f529fb"
-};
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-const sessionId = 'session_' + Math.random().toString(36).substr(2, 9);
-
 // DOM Elements
 const screens = {
   setup: document.getElementById('setup-screen'),
@@ -37,7 +20,7 @@ const statusText = document.getElementById('status-text');
 const userTranscript = document.getElementById('user-transcript');
 const voiceSelect = document.getElementById('voice-select');
 
-// 這裡修復了遺失的按鈕綁定！
+// 嚴格對齊所有按鈕 ID
 const btnStart = document.getElementById('btn-start');
 const btnExit = document.getElementById('btn-exit');
 const btnNext = document.getElementById('btn-next');
@@ -170,38 +153,45 @@ window.loadTextToPractice = (id) => {
 const SRS_INTERVALS = [0, 1, 3, 7, 14, 999]; 
 
 function renderVocab() {
-  const now = Date.now();
-  let dueCount = 0, weakCount = 0;
-  
-  vocabDB.forEach(v => {
-    if (v.nextReview <= now && v.level < 5) dueCount++;
-    if (v.isWeak) weakCount++;
-  });
-  
-  document.getElementById('vocab-due').innerText = dueCount;
+  let weakCount = vocabDB.filter(v => v.isWeak).length;
+  document.getElementById('vocab-total').innerText = vocabDB.length;
   document.getElementById('vocab-weak').innerText = weakCount;
 
   const q = document.getElementById('vocab-search').value.toLowerCase();
   document.getElementById('vocab-list').innerHTML = vocabDB.filter(v => v.word.toLowerCase().includes(q)).map(v => `
-    <div class="lib-card glass">
-      <div class="lib-text" style="font-size:18px; font-weight:bold; color:var(--accent);">
-        ${v.word} <span class="badge ${v.pos}">${v.pos}</span> ${v.isWeak ? '<span class="badge weak">Weak</span>' : ''}
-      </div>
-      <div style="font-size:14px; margin-bottom:10px;">${v.translation}</div>
-      <div class="lib-meta">
-        <span>Lvl: ${v.level}</span>
-        <div class="lib-actions">
-          <button onclick="playVoice('${v.word}')">🔊</button>
-          <button onclick="jumpToShadowing('${v.id}')">🎯 Shadow</button>
-          <button class="delete" onclick="deleteVocab('${v.id}')">Del</button>
-        </div>
-      </div>
+    <div class="vocab-card glass" onclick="openVocabDetail('${v.id}')">
+      <span class="vc-word">${v.word}</span>
+      <span class="badge ${v.pos || 'noun'}">${v.pos || 'noun'}</span>
+      <span class="vc-trans">${v.translation}</span>
+      ${v.isWeak ? '<span class="badge weak" style="margin-top:5px;">Weak</span>' : ''}
     </div>
   `).join('');
 }
 
-window.deleteVocab = (id) => {
-  if(confirm("Delete word?")) { vocabDB = vocabDB.filter(v => v.id !== id); localStorage.setItem('shadow_vocab', JSON.stringify(vocabDB)); renderVocab(); }
+window.openVocabDetail = (id) => {
+  const v = vocabDB.find(x => x.id === id);
+  if (!v) return;
+  document.getElementById('vd-word').innerText = v.word;
+  document.getElementById('vd-pos').innerText = v.pos || 'noun';
+  document.getElementById('vd-pos').className = `badge ${v.pos || 'noun'}`;
+  document.getElementById('vd-trans').innerText = v.translation;
+  document.getElementById('vd-example').innerText = v.example || 'No example provided.';
+  document.getElementById('vd-level').innerText = `Level: ${v.level}`;
+  document.getElementById('vd-status').innerText = v.isWeak ? '🔴 Weak' : '🟢 Good';
+  
+  document.getElementById('btn-vd-shadow').onclick = () => {
+    document.getElementById('vocab-detail-modal').classList.remove('active');
+    jumpToShadowing(v.id);
+  };
+  document.getElementById('btn-vd-delete').onclick = () => {
+    if(confirm("Delete word?")) { 
+      vocabDB = vocabDB.filter(x => x.id !== id); 
+      localStorage.setItem('shadow_vocab', JSON.stringify(vocabDB)); 
+      document.getElementById('vocab-detail-modal').classList.remove('active');
+      renderVocab(); 
+    }
+  };
+  document.getElementById('vocab-detail-modal').classList.add('active');
 };
 
 window.playVoice = (text) => {
@@ -234,14 +224,18 @@ document.getElementById('btn-save-vocab').onclick = () => {
   renderVocab(); alert("Added to Vocab!");
 };
 
-// SRS Review Logic
+// SRS Review Logic (無限制 15 張卡片)
 let reviewQueue = [];
 let currentReviewWord = null;
+let reviewTotal = 0;
 
 document.getElementById('btn-start-review').onclick = () => {
-  const now = Date.now();
-  reviewQueue = vocabDB.filter(v => v.nextReview <= now && v.level < 5);
-  if (reviewQueue.length === 0) return alert("You're all caught up for today!");
+  if (vocabDB.length === 0) return alert("Your vocabulary is empty!");
+  
+  // 優先抓取需要複習的，如果不夠就隨機抓，總共最多 15 個
+  let sortedDB = [...vocabDB].sort((a, b) => a.nextReview - b.nextReview);
+  reviewQueue = sortedDB.slice(0, 15);
+  reviewTotal = reviewQueue.length;
   
   switchScreen('review');
   showNextReviewCard();
@@ -252,14 +246,18 @@ function showNextReviewCard() {
   currentReviewWord = reviewQueue[0];
   
   document.getElementById('fc-word').innerText = currentReviewWord.word;
-  document.getElementById('fc-pos').innerText = currentReviewWord.pos;
+  document.getElementById('fc-pos').innerText = currentReviewWord.pos || 'noun';
+  document.getElementById('fc-pos').className = `badge ${currentReviewWord.pos || 'noun'}`;
   document.getElementById('fc-trans').innerText = currentReviewWord.translation;
-  document.getElementById('fc-example').innerText = currentReviewWord.example;
+  document.getElementById('fc-example').innerText = currentReviewWord.example || '';
   
   document.getElementById('fc-answer').classList.add('hidden');
   document.getElementById('srs-controls').classList.add('hidden');
   document.getElementById('btn-show-answer').classList.remove('hidden');
-  document.getElementById('review-counter').innerText = `${reviewQueue.length} left`;
+  
+  let currentNum = reviewTotal - reviewQueue.length + 1;
+  document.getElementById('review-counter').innerText = `${currentNum} / ${reviewTotal}`;
+  document.getElementById('review-progress').style.width = `${(currentNum / reviewTotal) * 100}%`;
 }
 
 document.getElementById('btn-show-answer').onclick = () => {
@@ -378,8 +376,6 @@ function playCurrentSentence() {
 
   utterance.onend = () => {
     updateKPI('totalSentences');
-    // Firebase Sync
-    addDoc(collection(db, "sessions"), { sentence: text, mode: mode, timestamp: Date.now(), sessionId: sessionId }).catch(()=>{});
     setMetronomeState('paused');
     timerId = setTimeout(startRecording, LEVEL_CONFIG[mode].pauseMs);
   };
@@ -456,7 +452,7 @@ btnBack.addEventListener('click', () => { if (currentIndex > 0) { currentIndex--
 btnReplay.addEventListener('click', playCurrentSentence);
 btnSpeak.addEventListener('click', () => { window.speechSynthesis.cancel(); clearTimeout(timerId); startRecording(); });
 
-// Chunk Playback
+// Chunk Playback (點擊單字發音)
 currentSentenceEl.addEventListener('click', (e) => {
   const wordSpan = e.target.closest('.word');
   if (!wordSpan) return;
