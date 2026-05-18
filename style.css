@@ -53,7 +53,22 @@ textarea:focus { outline: none; border-color: var(--blue); }
 .primary-btn { background: var(--green); color: white; width: 100%; box-shadow: 0 4px 0 var(--green-shadow); }
 .secondary-btn { background: var(--gray); color: var(--text-main); box-shadow: 0 4px 0 var(--gray-dark); }
 .small-btn { padding: 8px 15px; font-size: 14px; }
-.icon-btn { flex: 1; background: var(--blue); color: white; box-shadow: 0 4px 0 var(--blue-shadow); font-size: 24px; padding: 10px; }
+.icon-btn { 
+  flex: 1; 
+  min-width: 0; /* 防止按鈕被內容撐開變形 */
+  background: var(--blue); 
+  color: white; 
+  box-shadow: 0 4px 0 var(--blue-shadow); 
+  font-size: 22px; 
+  padding: 12px 0; 
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.mic-btn { 
+  background: var(--green); 
+  box-shadow: 0 4px 0 var(--green-shadow); 
+}
 .mic-btn { background: var(--green); box-shadow: 0 4px 0 var(--green-shadow); }
 
 /* Training Screen */
@@ -68,7 +83,14 @@ textarea:focus { outline: none; border-color: var(--blue); }
 
 .transcript-box { background: #f7f7f7; width: 100%; padding: 15px; border-radius: 15px; min-height: 60px; font-style: italic; color: #888; border: 2px dashed var(--gray); }
 
-.controls { display: flex; gap: 10px; margin-top: auto; padding-bottom: 20px; }
+.controls { 
+  display: flex; 
+  width: 100%; 
+  gap: 10px; 
+  margin-top: auto; 
+  padding-bottom: 20px; 
+  justify-content: space-between; 
+}
 
 /* Visual Metronome Pulse */
 .pulse { width: 80px; height: 80px; border-radius: 50%; background: var(--gray); transition: background-color 0.3s; margin-bottom: 10px; }

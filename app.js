@@ -66,6 +66,7 @@ window.speechSynthesis.onvoiceschanged = populateVoices;
 populateVoices();
 
 const btnBack = document.getElementById('btn-back');
+const btnPause = document.getElementById('btn-pause');
 const btnNext = document.getElementById('btn-next');
 const btnReplay = document.getElementById('btn-replay');
 const btnSpeak = document.getElementById('btn-speak');
@@ -149,6 +150,8 @@ function setMetronomeState(state) {
 }
 
 function playCurrentSentence() {
+	isPaused = false;
+  btnPause.innerText = "⏸";
   clearTimeout(timerId);
   window.speechSynthesis.cancel();
   if (recognition) recognition.stop();
@@ -381,10 +384,31 @@ currentSentenceEl.addEventListener('click', (e) => {
   window.speechSynthesis.speak(utterance);
 });
 
-// --- 鍵盤快捷鍵 (A, S, D, Space) ---
+// --- 暫停/繼續 核心邏輯 ---
 let isPaused = false;
+function togglePauseResume() {
+  if (window.speechSynthesis.speaking) {
+    if (isPaused) {
+      window.speechSynthesis.resume();
+      isPaused = false;
+      btnPause.innerText = "⏸"; // 播放中顯示暫停符號
+      statusText.innerText = "🎧 LISTEN";
+      statusText.style.color = 'var(--blue)';
+    } else {
+      window.speechSynthesis.pause();
+      isPaused = true;
+      btnPause.innerText = "▶️"; // 暫停中顯示播放符號
+      statusText.innerText = "⏸ PAUSED";
+      statusText.style.color = 'var(--gray-dark)';
+    }
+  }
+}
+
+// 綁定實體暫停按鈕
+btnPause.addEventListener('click', togglePauseResume);
+
+// --- 鍵盤快捷鍵 (A, S, D, Space) ---
 document.addEventListener('keydown', (e) => {
-  // 確保只在訓練畫面觸發，且沒有在輸入框打字
   if (!trainingScreen.classList.contains('active')) return;
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
 
@@ -392,19 +416,7 @@ document.addEventListener('keydown', (e) => {
 
   if (key === 'Space') {
     e.preventDefault(); // 防止網頁往下捲動
-    if (window.speechSynthesis.speaking) {
-      if (isPaused) {
-        window.speechSynthesis.resume();
-        isPaused = false;
-        statusText.innerText = "🎧 LISTEN";
-        statusText.style.color = 'var(--blue)';
-      } else {
-        window.speechSynthesis.pause();
-        isPaused = true;
-        statusText.innerText = "⏸ PAUSED";
-        statusText.style.color = 'var(--gray-dark)';
-      }
-    }
+    togglePauseResume();
   } else if (key === 'KeyA') {
     btnBack.click();
   } else if (key === 'KeyS') {
