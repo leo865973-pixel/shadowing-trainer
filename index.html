@@ -10,81 +10,101 @@
 </head>
 <body>
 
-  <!-- 頂部導覽列 (Apple Glassmorphism) -->
+  <!-- 頂部導覽列 -->
   <nav class="top-nav glass">
     <div class="nav-brand">ShadowPro</div>
     <div class="nav-tabs">
       <button id="tab-practice" class="nav-btn active">Practice</button>
       <button id="tab-library" class="nav-btn">Library</button>
+      <button id="tab-vocab" class="nav-btn">Vocab</button>
     </div>
   </nav>
 
-  <!-- 畫面 1：SETUP SCREEN (練習設定) -->
+  <!-- 畫面 1：SETUP SCREEN -->
   <div id="setup-screen" class="screen active">
     <div class="kpi-dashboard">
       <div class="kpi-card glass">
-        <div class="kpi-value" id="kpi-streak">0</div>
+        <div class="kpi-value"><span id="kpi-streak">0</span> <button class="reset-btn" onclick="resetKPI('streak')">↺</button></div>
         <div class="kpi-label">Day Streak</div>
       </div>
       <div class="kpi-card glass">
-        <div class="kpi-value" id="kpi-sentences">0</div>
-        <div class="kpi-label">Sentences</div>
+        <div class="kpi-value"><span id="kpi-sentences">0</span> <button class="reset-btn" onclick="resetKPI('sentences')">↺</button></div>
+        <div class="kpi-label" id="label-sentences">Total Sentences</div>
       </div>
       <div class="kpi-card glass">
-        <div class="kpi-value" id="kpi-attempts">0</div>
-        <div class="kpi-label">Attempts</div>
+        <div class="kpi-value"><span id="kpi-attempts">0</span> <button class="reset-btn" onclick="resetKPI('attempts')">↺</button></div>
+        <div class="kpi-label" id="label-attempts">Total Attempts</div>
       </div>
     </div>
 
     <div class="setup-container glass">
       <textarea id="text-input" placeholder="Paste your English text here to start training..."></textarea>
-      
       <div class="voice-settings">
         <label for="voice-select">Voice Engine</label>
         <select id="voice-select"><option>Loading voices...</option></select>
       </div>
-
       <div class="level-selector">
         <label class="radio-card"><input type="radio" name="level" value="beginner" checked> <span>Beginner</span></label>
         <label class="radio-card"><input type="radio" name="level" value="normal"> <span>Normal</span></label>
         <label class="radio-card"><input type="radio" name="level" value="fluency"> <span>Fluency</span></label>
       </div>
-
       <button id="btn-start" class="btn primary-btn">Start Training</button>
     </div>
   </div>
 
-  <!-- 畫面 2：LIBRARY SCREEN (文本資料庫) -->
+  <!-- 畫面 2：LIBRARY SCREEN -->
   <div id="library-screen" class="screen">
     <div class="library-header glass">
       <input type="text" id="search-input" placeholder="Search texts...">
-      <div class="filter-group">
-        <select id="sort-select">
-          <option value="edit-desc">Sort: Newest Edited</option>
-          <option value="edit-asc">Sort: Oldest Edited</option>
-          <option value="create-desc">Sort: Newest Created</option>
-          <option value="length-desc">Sort: Longest</option>
-          <option value="length-asc">Sort: Shortest</option>
-        </select>
-        <select id="filter-select">
-          <option value="all">All Status</option>
-          <option value="learning">Learning</option>
-          <option value="familiar">Familiar</option>
-          <option value="mastered">Mastered</option>
-        </select>
+    </div>
+    <div id="library-list" class="library-list"></div>
+  </div>
+
+  <!-- 畫面 3：VOCAB SCREEN (單字庫) -->
+  <div id="vocab-screen" class="screen">
+    <div class="vocab-dashboard glass">
+      <div class="vocab-stats">
+        <div><h2 id="vocab-due">0</h2><p>Due Today</p></div>
+        <div><h2 id="vocab-weak" style="color: #ff3b30;">0</h2><p>Weak Words</p></div>
+      </div>
+      <button id="btn-start-review" class="btn primary-btn">Start SRS Review</button>
+    </div>
+    <div class="library-header glass" style="margin-top: 20px;">
+      <input type="text" id="vocab-search" placeholder="Search vocabulary...">
+    </div>
+    <div id="vocab-list" class="library-list"></div>
+  </div>
+
+  <!-- 畫面 4：REVIEW SCREEN (SRS 複習卡片) -->
+  <div id="review-screen" class="screen">
+    <header class="training-header glass">
+      <button id="btn-exit-review" class="btn icon-text-btn">✕ Exit</button>
+      <div class="progress-container"><div id="review-progress" class="progress-bar"></div></div>
+      <div id="review-counter" class="counter">0/0</div>
+    </header>
+    <div class="flashcard glass" id="flashcard">
+      <h2 id="fc-word" class="fc-word">Word</h2>
+      <button id="btn-fc-voice" class="btn icon-btn" style="margin: 10px auto;">🔊</button>
+      <div id="fc-answer" class="fc-answer hidden">
+        <span id="fc-pos" class="badge familiar">noun</span>
+        <p id="fc-trans" class="fc-trans">中文解釋</p>
+        <p id="fc-example" class="fc-example">Example sentence goes here.</p>
       </div>
     </div>
-    <div id="library-list" class="library-list">
-      <!-- Cards will be injected here -->
+    <button id="btn-show-answer" class="btn primary-btn" style="margin-top: 20px;">Show Answer</button>
+    <div id="srs-controls" class="srs-controls hidden">
+      <button class="btn srs-btn fail" onclick="processReview(0)">Forgot<br><small>Review Tomorrow</small></button>
+      <button class="btn srs-btn pass" onclick="processReview(1)">Remember<br><small>Level Up</small></button>
     </div>
   </div>
 
-  <!-- 畫面 3：TRAINING SCREEN (訓練畫面) -->
+  <!-- 畫面 5：TRAINING SCREEN -->
   <div id="training-screen" class="screen">
     <header class="training-header glass">
       <button id="btn-exit" class="btn icon-text-btn">✕ Exit</button>
+      <button id="btn-return-vocab" class="btn icon-text-btn hidden" style="color: var(--accent);">🔙 Back to Vocab</button>
       <div class="progress-container"><div id="progress-bar" class="progress-bar"></div></div>
-      <button id="btn-toggle-markup" class="btn icon-text-btn">👁️ Parse</button>
+      <button id="btn-add-vocab" class="btn icon-text-btn">➕ Add Vocab</button>
     </header>
 
     <div class="training-container">
@@ -95,10 +115,7 @@
     </div>
 
     <div class="shortcut-hints">
-      <span><b>A</b> 上一句</span>
-      <span><b>Space</b> 暫停/繼續</span>
-      <span><b>S</b> 重播</span>
-      <span><b>D</b> 下一句</span>
+      <span><b>A</b> 上一句</span> <span><b>Space</b> 暫停/繼續</span> <span><b>S</b> 重播</span> <span><b>D</b> 下一句</span>
     </div>
 
     <div class="controls glass">
@@ -110,21 +127,23 @@
     </div>
   </div>
 
-  <!-- 編輯 Modal -->
-  <div id="edit-modal" class="modal-overlay">
+  <!-- Add Vocab Modal -->
+  <div id="vocab-modal" class="modal-overlay">
     <div class="modal-content glass">
-      <h3>Edit Text</h3>
-      <textarea id="edit-textarea"></textarea>
+      <h3>Add to Vocabulary</h3>
+      <input type="text" id="v-word" placeholder="Word / Phrase" class="modal-input">
+      <input type="text" id="v-trans" placeholder="Chinese Translation (中文解釋)" class="modal-input">
+      <select id="v-pos" class="modal-input">
+        <option value="noun">Noun (名詞)</option>
+        <option value="verb">Verb (動詞)</option>
+        <option value="adjective">Adjective (形容詞)</option>
+        <option value="adverb">Adverb (副詞)</option>
+        <option value="phrase">Phrase (片語)</option>
+      </select>
+      <textarea id="v-example" placeholder="Example sentence..." class="modal-input" style="height: 80px;"></textarea>
       <div class="modal-actions">
-        <select id="edit-status">
-          <option value="learning">🟠 Learning</option>
-          <option value="familiar">🔵 Familiar</option>
-          <option value="mastered">🟢 Mastered</option>
-        </select>
-        <div class="btn-group">
-          <button id="btn-cancel-edit" class="btn secondary-btn">Cancel</button>
-          <button id="btn-save-edit" class="btn primary-btn">Save</button>
-        </div>
+        <button class="btn secondary-btn" onclick="document.getElementById('vocab-modal').classList.remove('active')">Cancel</button>
+        <button id="btn-save-vocab" class="btn primary-btn">Save Word</button>
       </div>
     </div>
   </div>

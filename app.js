@@ -1,84 +1,57 @@
-// FIREBASE IMPORTS
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
-import { getFirestore, collection, addDoc } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
-
-const firebaseConfig = {
-  apiKey: "AIzaSyCxP07UyljApuiaz3EQXvZrkKZguA870wA",
-  authDomain: "shadow-training-tool.firebaseapp.com",
-  databaseURL: "https://shadow-training-tool-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "shadow-training-tool",
-  storageBucket: "shadow-training-tool.firebasestorage.app",
-  messagingSenderId: "432658667170",
-  appId: "1:432658667170:web:80ec24927d0d2a72f529fb"
-};
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-const sessionId = 'session_' + Math.random().toString(36).substr(2, 9);
-
 // DOM Elements
-const setupScreen = document.getElementById('setup-screen');
-const libraryScreen = document.getElementById('library-screen');
-const trainingScreen = document.getElementById('training-screen');
-const tabPractice = document.getElementById('tab-practice');
-const tabLibrary = document.getElementById('tab-library');
+const screens = {
+  setup: document.getElementById('setup-screen'),
+  library: document.getElementById('library-screen'),
+  vocab: document.getElementById('vocab-screen'),
+  review: document.getElementById('review-screen'),
+  training: document.getElementById('training-screen')
+};
+const tabs = {
+  practice: document.getElementById('tab-practice'),
+  library: document.getElementById('tab-library'),
+  vocab: document.getElementById('tab-vocab')
+};
 
 const textInput = document.getElementById('text-input');
-const btnStart = document.getElementById('btn-start');
-const btnExit = document.getElementById('btn-exit');
-const btnToggleMarkup = document.getElementById('btn-toggle-markup');
 const currentSentenceEl = document.getElementById('current-sentence');
 const progressBar = document.getElementById('progress-bar');
 const pulseIndicator = document.getElementById('pulse-indicator');
 const statusText = document.getElementById('status-text');
 const userTranscript = document.getElementById('user-transcript');
-
-const btnBack = document.getElementById('btn-back');
-const btnPause = document.getElementById('btn-pause');
-const btnReplay = document.getElementById('btn-replay');
-const btnNext = document.getElementById('btn-next');
-const btnSpeak = document.getElementById('btn-speak');
+const voiceSelect = document.getElementById('voice-select');
 
 // State
 let sentences = [];
 let currentIndex = 0;
 let mode = 'beginner';
 let timerId = null;
-let showMarkup = false;
 let isPaused = false;
+let currentTextId = null; // Track which text is loaded
+let vocabShadowingMode = null; // { wordId, targetWord }
 
-// Speech Recognition
+// Speech Recognition & Synthesis
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 const recognition = SpeechRecognition ? new SpeechRecognition() : null;
 if (recognition) { recognition.continuous = false; recognition.interimResults = true; }
 
-const LEVEL_CONFIG = {
-  beginner: { rate: 0.8, pauseMs: 3000, autoNext: false },
-  normal: { rate: 1.0, pauseMs: 2000, autoNext: false },
-  fluency: { rate: 1.2, pauseMs: 500, autoNext: true }
-};
-
-// --- Voice Setup ---
-const voiceSelect = document.getElementById('voice-select');
+const LEVEL_CONFIG = { beginner: { rate: 0.8, pauseMs: 3000, autoNext: false }, normal: { rate: 1.0, pauseMs: 2000, autoNext: false }, fluency: { rate: 1.2, pauseMs: 500, autoNext: true } };
 let availableVoices = [];
-function populateVoices() {
+window.speechSynthesis.onvoiceschanged = () => {
   availableVoices = window.speechSynthesis.getVoices();
-  const englishVoices = availableVoices.filter(v => v.lang.startsWith('en'));
-  if (englishVoices.length > 0) {
+  const enVoices = availableVoices.filter(v => v.lang.startsWith('en'));
+  if (enVoices.length > 0) {
     voiceSelect.innerHTML = '';
-    englishVoices.forEach(voice => {
-      const option = document.createElement('option');
-      option.value = voice.voiceURI;
-      let label = voice.name;
-      if (label.includes('Natural') || label.includes('Online') || label.includes('Google') || label.includes('Premium')) {
-        label = '⭐ ' + label + ' (Best)';
-      }
-      option.textContent = label;
-      voiceSelect.appendChild(option);
+    enVoices.forEach(v => {
+      let label = v.name;
+      if (label.includes('Natural') || label.includes('Online')) label = '⭐ ' + label;
+      voiceSelect.add(new Option(label, v.voiceURI));
     });
   }
-}
-window.speechSynthesis.onvoiceschanged = populateVoices;
-populateVoices();
+};
+
+// --- Data Storage ---
+let library = JSON.parse(localStorage.getItem('shadow_library')) || [];
+let vocabDB = JSON.parse(localStorage.getItem('shadow_vocab')) || [];
 
 // --- KPI System ---
 function loadKPIs() {
@@ -88,73 +61,71 @@ function loadKPIs() {
   if (lastDate !== today) {
     if (lastDate === new Date(Date.now() - 86400000).toDateString()) streak++;
     else if (lastDate !== null) streak = 1;
-    localStorage.setItem('lastDate', today);
-    localStorage.setItem('streak', streak);
+    localStorage.setItem('lastDate', today); localStorage.setItem('streak', streak);
   }
   document.getElementById('kpi-streak').innerText = streak;
-  document.getElementById('kpi-sentences').innerText = localStorage.getItem('totalSentences') || '0';
-  document.getElementById('kpi-attempts').innerText = localStorage.getItem('totalAttempts') || '0';
+
+  // Contextual KPI (Global vs Local Text)
+  if (currentTextId) {
+    const textData = library.find(t => t.id === currentTextId);
+    document.getElementById('label-sentences').innerText = "Text Sentences";
+    document.getElementById('label-attempts').innerText = "Text Attempts";
+    document.getElementById('kpi-sentences').innerText = textData?.stats?.sentences || 0;
+    document.getElementById('kpi-attempts').innerText = textData?.stats?.attempts || 0;
+  } else {
+    document.getElementById('label-sentences').innerText = "Total Sentences";
+    document.getElementById('label-attempts').innerText = "Total Attempts";
+    document.getElementById('kpi-sentences').innerText = localStorage.getItem('totalSentences') || '0';
+    document.getElementById('kpi-attempts').innerText = localStorage.getItem('totalAttempts') || '0';
+  }
 }
+
+window.resetKPI = (type) => {
+  if (!confirm(`Reset ${type} to 0?`)) return;
+  if (type === 'streak') localStorage.setItem('streak', '0');
+  else if (currentTextId) {
+    const textData = library.find(t => t.id === currentTextId);
+    if (textData) { textData.stats[type] = 0; localStorage.setItem('shadow_library', JSON.stringify(library)); }
+  } else {
+    localStorage.setItem(type === 'sentences' ? 'totalSentences' : 'totalAttempts', '0');
+  }
+  loadKPIs();
+};
+
 function updateKPI(type) {
   localStorage.setItem(type, parseInt(localStorage.getItem(type) || '0') + 1);
+  if (currentTextId) {
+    const textData = library.find(t => t.id === currentTextId);
+    if (textData) {
+      if (!textData.stats) textData.stats = { sentences: 0, attempts: 0 };
+      textData.stats[type === 'totalSentences' ? 'sentences' : 'attempts']++;
+      localStorage.setItem('shadow_library', JSON.stringify(library));
+    }
+  }
   loadKPIs();
 }
 
-// --- Text Library System (Local Database) ---
-let library = JSON.parse(localStorage.getItem('shadow_library')) || [];
-
+// --- Library System ---
 function saveToLibrary(text) {
   const cleanText = text.trim();
-  if (!cleanText) return;
-  const existingIndex = library.findIndex(item => item.text === cleanText);
-  const now = Date.now();
-  
-  if (existingIndex >= 0) {
-    library[existingIndex].updatedAt = now; // Update time
-  } else {
-    library.push({
-      id: 'txt_' + now,
-      text: cleanText,
-      status: 'learning', // learning, familiar, mastered
-      createdAt: now,
-      updatedAt: now,
-      length: cleanText.length
-    });
+  if (!cleanText) return null;
+  let item = library.find(i => i.text === cleanText);
+  if (!item) {
+    item = { id: 'txt_' + Date.now(), text: cleanText, status: 'learning', createdAt: Date.now(), stats: { sentences: 0, attempts: 0 } };
+    library.push(item);
+    localStorage.setItem('shadow_library', JSON.stringify(library));
   }
-  localStorage.setItem('shadow_library', JSON.stringify(library));
-  renderLibrary();
+  return item.id;
 }
 
 function renderLibrary() {
-  const listEl = document.getElementById('library-list');
-  const searchQ = document.getElementById('search-input').value.toLowerCase();
-  const sortQ = document.getElementById('sort-select').value;
-  const filterQ = document.getElementById('filter-select').value;
-
-  let filtered = library.filter(item => {
-    const matchSearch = item.text.toLowerCase().includes(searchQ);
-    const matchFilter = filterQ === 'all' || item.status === filterQ;
-    return matchSearch && matchFilter;
-  });
-
-  filtered.sort((a, b) => {
-    if (sortQ === 'edit-desc') return b.updatedAt - a.updatedAt;
-    if (sortQ === 'edit-asc') return a.updatedAt - b.updatedAt;
-    if (sortQ === 'create-desc') return b.createdAt - a.createdAt;
-    if (sortQ === 'length-desc') return b.length - a.length;
-    if (sortQ === 'length-asc') return a.length - b.length;
-  });
-
-  listEl.innerHTML = filtered.map(item => `
+  const q = document.getElementById('search-input').value.toLowerCase();
+  document.getElementById('library-list').innerHTML = library.filter(i => i.text.toLowerCase().includes(q)).map(item => `
     <div class="lib-card glass" onclick="loadTextToPractice('${item.id}')">
       <div class="lib-text">${item.text}</div>
       <div class="lib-meta">
         <span class="badge ${item.status}">${item.status}</span>
-        <span style="margin-left:auto; margin-right:10px;">${new Date(item.updatedAt).toLocaleDateString()}</span>
-        <div class="lib-actions">
-          <button onclick="event.stopPropagation(); openEditModal('${item.id}')">Edit</button>
-          <button class="delete" onclick="event.stopPropagation(); deleteFromLibrary('${item.id}')">Delete</button>
-        </div>
+        <span>Attempts: ${item.stats?.attempts || 0}</span>
       </div>
     </div>
   `).join('');
@@ -163,97 +134,185 @@ function renderLibrary() {
 window.loadTextToPractice = (id) => {
   const item = library.find(i => i.id === id);
   if (item) {
-    textInput.value = item.text;
-    tabPractice.click();
+    currentTextId = id; textInput.value = item.text;
+    loadKPIs(); switchTab('practice');
   }
 };
 
-window.deleteFromLibrary = (id) => {
-  if(confirm("Delete this text?")) {
-    library = library.filter(i => i.id !== id);
-    localStorage.setItem('shadow_library', JSON.stringify(library));
-    renderLibrary();
+// --- Vocab & SRS System ---
+const SRS_INTERVALS = [0, 1, 3, 7, 14, 999]; // Days
+
+function renderVocab() {
+  const now = Date.now();
+  let dueCount = 0, weakCount = 0;
+  
+  vocabDB.forEach(v => {
+    if (v.nextReview <= now && v.level < 5) dueCount++;
+    if (v.isWeak) weakCount++;
+  });
+  
+  document.getElementById('vocab-due').innerText = dueCount;
+  document.getElementById('vocab-weak').innerText = weakCount;
+
+  const q = document.getElementById('vocab-search').value.toLowerCase();
+  document.getElementById('vocab-list').innerHTML = vocabDB.filter(v => v.word.toLowerCase().includes(q)).map(v => `
+    <div class="lib-card glass">
+      <div class="lib-text" style="font-size:18px; font-weight:bold; color:var(--accent);">
+        ${v.word} <span class="badge ${v.pos}">${v.pos}</span> ${v.isWeak ? '<span class="badge weak">Weak</span>' : ''}
+      </div>
+      <div style="font-size:14px; margin-bottom:10px;">${v.translation}</div>
+      <div class="lib-meta">
+        <span>Lvl: ${v.level}</span>
+        <div class="lib-actions">
+          <button onclick="playVoice('${v.word}')">🔊</button>
+          <button onclick="jumpToShadowing('${v.id}')">🎯 Shadow</button>
+          <button class="delete" onclick="deleteVocab('${v.id}')">Del</button>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+window.deleteVocab = (id) => {
+  if(confirm("Delete word?")) { vocabDB = vocabDB.filter(v => v.id !== id); localStorage.setItem('shadow_vocab', JSON.stringify(vocabDB)); renderVocab(); }
+};
+
+window.playVoice = (text) => {
+  window.speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  const v = availableVoices.find(v => v.voiceURI === voiceSelect.value);
+  if (v) u.voice = v;
+  window.speechSynthesis.speak(u);
+};
+
+// Add Vocab Modal
+document.getElementById('btn-add-vocab').onclick = () => {
+  document.getElementById('v-word').value = '';
+  document.getElementById('v-trans').value = '';
+  document.getElementById('v-example').value = sentences[currentIndex] || '';
+  document.getElementById('vocab-modal').classList.add('active');
+};
+
+document.getElementById('btn-save-vocab').onclick = () => {
+  const word = document.getElementById('v-word').value.trim();
+  const trans = document.getElementById('v-trans').value.trim();
+  if (!word || !trans) return alert("Word and Translation required!");
+  
+  vocabDB.push({
+    id: 'v_' + Date.now(), word: word, translation: trans, pos: document.getElementById('v-pos').value,
+    example: document.getElementById('v-example').value, sourceTextId: currentTextId,
+    level: 0, mistakes: 0, isWeak: false, addedAt: Date.now(), nextReview: Date.now()
+  });
+  localStorage.setItem('shadow_vocab', JSON.stringify(vocabDB));
+  document.getElementById('vocab-modal').classList.remove('active');
+  renderVocab(); alert("Added to Vocab!");
+};
+
+// SRS Review Logic
+let reviewQueue = [];
+let currentReviewWord = null;
+
+document.getElementById('btn-start-review').onclick = () => {
+  const now = Date.now();
+  reviewQueue = vocabDB.filter(v => v.nextReview <= now && v.level < 5);
+  if (reviewQueue.length === 0) return alert("You're all caught up for today!");
+  
+  switchScreen('review');
+  showNextReviewCard();
+};
+
+function showNextReviewCard() {
+  if (reviewQueue.length === 0) { alert("Review Complete!"); switchScreen('vocab'); renderVocab(); return; }
+  currentReviewWord = reviewQueue[0];
+  
+  document.getElementById('fc-word').innerText = currentReviewWord.word;
+  document.getElementById('fc-pos').innerText = currentReviewWord.pos;
+  document.getElementById('fc-trans').innerText = currentReviewWord.translation;
+  document.getElementById('fc-example').innerText = currentReviewWord.example;
+  
+  document.getElementById('fc-answer').classList.add('hidden');
+  document.getElementById('srs-controls').classList.add('hidden');
+  document.getElementById('btn-show-answer').classList.remove('hidden');
+  document.getElementById('review-counter').innerText = `${reviewQueue.length} left`;
+}
+
+document.getElementById('btn-show-answer').onclick = () => {
+  document.getElementById('fc-answer').classList.remove('hidden');
+  document.getElementById('btn-show-answer').classList.add('hidden');
+  document.getElementById('srs-controls').classList.remove('hidden');
+};
+
+document.getElementById('btn-fc-voice').onclick = () => playVoice(currentReviewWord.word);
+
+window.processReview = (remembered) => {
+  const v = vocabDB.find(x => x.id === currentReviewWord.id);
+  if (remembered) {
+    v.level = Math.min(5, v.level + 1);
+  } else {
+    v.level = 0; v.mistakes++;
+    if (v.mistakes >= 3) v.isWeak = true;
   }
+  v.nextReview = Date.now() + (SRS_INTERVALS[v.level] * 86400000);
+  localStorage.setItem('shadow_vocab', JSON.stringify(vocabDB));
+  
+  reviewQueue.shift(); // Remove from queue
+  showNextReviewCard();
 };
 
-// Edit Modal Logic
-const editModal = document.getElementById('edit-modal');
-const editTextArea = document.getElementById('edit-textarea');
-const editStatus = document.getElementById('edit-status');
-let editingId = null;
+document.getElementById('btn-exit-review').onclick = () => { switchScreen('vocab'); renderVocab(); };
 
-window.openEditModal = (id) => {
-  const item = library.find(i => i.id === id);
-  if (item) {
-    editingId = id;
-    editTextArea.value = item.text;
-    editStatus.value = item.status;
-    editModal.classList.add('active');
-  }
+// --- Jump to Shadowing ---
+window.jumpToShadowing = (vocabId) => {
+  const v = vocabDB.find(x => x.id === vocabId);
+  if (!v || !v.sourceTextId) return alert("Source text not found!");
+  
+  const textItem = library.find(t => t.id === v.sourceTextId);
+  if (!textItem) return alert("Source text deleted!");
+
+  currentTextId = textItem.id;
+  textInput.value = textItem.text;
+  sentences = textItem.text.match(/[^.?!]+[.?!]+/g) || textItem.text.split('\n');
+  sentences = sentences.map(s => s.trim()).filter(s => s.length > 0);
+  
+  // Find sentence containing the word
+  currentIndex = sentences.findIndex(s => s.toLowerCase().includes(v.word.toLowerCase()));
+  if (currentIndex === -1) currentIndex = 0;
+
+  vocabShadowingMode = { wordId: v.id, targetWord: v.word.toLowerCase() };
+  
+  switchScreen('training');
+  document.getElementById('btn-return-vocab').classList.remove('hidden');
+  document.getElementById('btn-exit').classList.add('hidden');
+  
+  playCurrentSentence();
 };
 
-document.getElementById('btn-cancel-edit').onclick = () => editModal.classList.remove('active');
-document.getElementById('btn-save-edit').onclick = () => {
-  const item = library.find(i => i.id === editingId);
-  if (item) {
-    item.text = editTextArea.value;
-    item.status = editStatus.value;
-    item.updatedAt = Date.now();
-    item.length = item.text.length;
-    localStorage.setItem('shadow_library', JSON.stringify(library));
-    renderLibrary();
-    editModal.classList.remove('active');
-  }
+document.getElementById('btn-return-vocab').onclick = () => {
+  window.speechSynthesis.cancel(); clearTimeout(timerId);
+  vocabShadowingMode = null;
+  document.getElementById('btn-return-vocab').classList.add('hidden');
+  document.getElementById('btn-exit').classList.remove('hidden');
+  switchTab('vocab');
 };
 
-document.getElementById('search-input').addEventListener('input', renderLibrary);
-document.getElementById('sort-select').addEventListener('change', renderLibrary);
-document.getElementById('filter-select').addEventListener('change', renderLibrary);
-
-// --- Navigation ---
-tabPractice.onclick = () => {
-  tabPractice.classList.add('active'); tabLibrary.classList.remove('active');
-  setupScreen.classList.add('active'); libraryScreen.classList.remove('active'); trainingScreen.classList.remove('active');
-};
-tabLibrary.onclick = () => {
-  tabLibrary.classList.add('active'); tabPractice.classList.remove('active');
-  libraryScreen.classList.add('active'); setupScreen.classList.remove('active'); trainingScreen.classList.remove('active');
-  renderLibrary();
-};
-
-// --- NLP Engine ---
-function analyzeSentence(sentence, showMarkup) {
-  const functionWords = new Set(['a','an','the','and','but','or','for','nor','so','yet','at','by','in','of','on','to','with','as','from','into','like','over','after','before','between','out','up','down','he','she','it','they','we','you','i','me','him','her','us','them','my','your','his','its','our','their','is','am','are','was','were','be','been','being','have','has','had','do','does','did','can','could','shall','should','will','would','may','might','must','this','that','these','those']);
-  const vowels = ['a','e','i','o','u'];
+// --- Core Training Engine ---
+function analyzeSentence(sentence) {
   let words = sentence.split(' ');
   let result = '';
-
   for(let i = 0; i < words.length; i++) {
     let word = words[i];
     let cleanWord = word.replace(/[^\w]/g, '').toLowerCase();
-    let nextWord = words[i+1] ? words[i+1].replace(/[^\w]/g, '').toLowerCase() : '';
-
-    let displayWord = word;
-    if (showMarkup && cleanWord && !functionWords.has(cleanWord)) displayWord = `<strong>${word}</strong>`;
-
-    let isLinking = false;
-    if (cleanWord && nextWord) {
-      let lastChar = cleanWord.slice(-1);
-      if (lastChar === 'e' && cleanWord.length > 1) lastChar = cleanWord.slice(-2, -1);
-      if (!vowels.includes(lastChar) && lastChar !== 'y' && lastChar !== 'w' && vowels.includes(nextWord.charAt(0))) isLinking = true;
+    
+    // Target Highlight Logic
+    if (vocabShadowingMode && cleanWord === vocabShadowingMode.targetWord) {
+      result += `<span class="word target-word" data-index="${i}">${word}</span> `;
+    } else {
+      result += `<span class="word" data-index="${i}">${word}</span> `;
     }
-
-    let isPause = word.match(/[,.;:!?]/) || (nextWord && ['and','but','or','because','if','when'].includes(nextWord));
-    let linkingHTML = (showMarkup && isLinking) ? '<span class="linking">_</span>' : '';
-    let pauseHTML = (showMarkup && isPause) ? '<span class="pause">//</span>' : '';
-    let space = (showMarkup && isLinking) ? '' : ' ';
-
-    result += `<span class="word" data-index="${i}">${displayWord}</span>${linkingHTML}${pauseHTML}${space}`;
   }
   return result.trim();
 }
 
-// --- Core Training Engine ---
 function setMetronomeState(state) {
   pulseIndicator.className = 'pulse ' + state;
   if (state === 'listening') { statusText.innerText = "🎧 LISTEN"; statusText.style.color = 'var(--accent)'; }
@@ -266,20 +325,18 @@ function playCurrentSentence() {
   isPaused = false; btnPause.innerText = "⏸";
 
   const text = sentences[currentIndex];
-  currentSentenceEl.innerHTML = analyzeSentence(text, showMarkup);
+  currentSentenceEl.innerHTML = analyzeSentence(text);
   userTranscript.innerText = "Waiting for you to speak...";
   progressBar.style.width = `${((currentIndex + 1) / sentences.length) * 100}%`;
 
   setMetronomeState('listening');
   const utterance = new SpeechSynthesisUtterance(text);
   utterance.lang = 'en-US'; utterance.rate = LEVEL_CONFIG[mode].rate;
-  
-  const selectedVoice = availableVoices.find(v => v.voiceURI === voiceSelect.value);
-  if (selectedVoice) utterance.voice = selectedVoice;
+  const v = availableVoices.find(v => v.voiceURI === voiceSelect.value);
+  if (v) utterance.voice = v;
 
   utterance.onend = () => {
     updateKPI('totalSentences');
-    addDoc(collection(db, "sessions"), { sentence: text, mode: mode, timestamp: Date.now(), sessionId: sessionId }).catch(()=>{});
     setMetronomeState('paused');
     timerId = setTimeout(startRecording, LEVEL_CONFIG[mode].pauseMs);
   };
@@ -304,33 +361,41 @@ function autoAdvanceCheck() {
   }
 }
 
-// --- Event Listeners ---
+// --- Event Listeners & Navigation ---
+function switchScreen(screenId) {
+  Object.values(screens).forEach(s => s.classList.remove('active'));
+  screens[screenId].classList.add('active');
+}
+function switchTab(tabId) {
+  Object.values(tabs).forEach(t => t.classList.remove('active'));
+  tabs[tabId].classList.add('active');
+  if (tabId === 'practice') { switchScreen('setup'); loadKPIs(); }
+  if (tabId === 'library') { switchScreen('library'); renderLibrary(); }
+  if (tabId === 'vocab') { switchScreen('vocab'); renderVocab(); }
+}
+
+tabs.practice.onclick = () => switchTab('practice');
+tabs.library.onclick = () => switchTab('library');
+tabs.vocab.onclick = () => switchTab('vocab');
+
 btnStart.addEventListener('click', () => {
   const rawText = textInput.value.trim();
   if (!rawText) return alert("Please paste some text first!");
   
-  saveToLibrary(rawText); // Save to Database
-  
+  currentTextId = saveToLibrary(rawText) || currentTextId;
   sentences = rawText.match(/[^.?!]+[.?!]+/g) || rawText.split('\n');
   sentences = sentences.map(s => s.trim()).filter(s => s.length > 0);
-  if(sentences.length === 0) return alert("Could not find any sentences!");
-
+  
   mode = document.querySelector('input[name="level"]:checked').value;
   currentIndex = 0;
-  setupScreen.classList.remove('active'); trainingScreen.classList.add('active');
+  switchScreen('training');
   window.speechSynthesis.speak(new SpeechSynthesisUtterance(''));
   playCurrentSentence();
 });
 
 btnExit.addEventListener('click', () => {
   window.speechSynthesis.cancel(); if (recognition) recognition.stop(); clearTimeout(timerId);
-  trainingScreen.classList.remove('active'); setupScreen.classList.add('active'); loadKPIs();
-});
-
-btnToggleMarkup.addEventListener('click', () => {
-  showMarkup = !showMarkup;
-  btnToggleMarkup.style.color = showMarkup ? 'var(--accent)' : 'var(--text-muted)';
-  if (sentences.length > 0) currentSentenceEl.innerHTML = analyzeSentence(sentences[currentIndex], showMarkup);
+  switchScreen('setup'); loadKPIs();
 });
 
 btnNext.addEventListener('click', () => { if (currentIndex < sentences.length - 1) { currentIndex++; playCurrentSentence(); } });
@@ -338,26 +403,6 @@ btnBack.addEventListener('click', () => { if (currentIndex > 0) { currentIndex--
 btnReplay.addEventListener('click', playCurrentSentence);
 btnSpeak.addEventListener('click', () => { window.speechSynthesis.cancel(); clearTimeout(timerId); startRecording(); });
 
-// Chunk Playback
-currentSentenceEl.addEventListener('click', (e) => {
-  const wordSpan = e.target.closest('.word');
-  if (!wordSpan) return;
-  const startIndex = parseInt(wordSpan.getAttribute('data-index'));
-  const words = sentences[currentIndex].split(' ');
-  let endIndex = startIndex;
-  for (let i = startIndex; i < words.length; i++) {
-    let w = words[i], nw = words[i+1] ? words[i+1].replace(/[^\w]/g, '').toLowerCase() : '';
-    if (w.match(/[,.;:!?]/) || (nw && ['and','but','or','because','if','when'].includes(nw)) || i === words.length - 1) { endIndex = i; break; }
-  }
-  window.speechSynthesis.cancel();
-  const utterance = new SpeechSynthesisUtterance(words.slice(startIndex, endIndex + 1).join(' '));
-  utterance.lang = 'en-US'; utterance.rate = LEVEL_CONFIG[mode].rate;
-  const selectedVoice = availableVoices.find(v => v.voiceURI === voiceSelect.value);
-  if (selectedVoice) utterance.voice = selectedVoice;
-  window.speechSynthesis.speak(utterance);
-});
-
-// Pause/Resume Logic
 function togglePauseResume() {
   if (window.speechSynthesis.speaking) {
     if (isPaused) { window.speechSynthesis.resume(); isPaused = false; btnPause.innerText = "⏸"; statusText.innerText = "🎧 LISTEN"; statusText.style.color = 'var(--accent)'; }
@@ -366,9 +411,8 @@ function togglePauseResume() {
 }
 btnPause.addEventListener('click', togglePauseResume);
 
-// Keyboard Shortcuts
 document.addEventListener('keydown', (e) => {
-  if (!trainingScreen.classList.contains('active')) return;
+  if (!screens.training.classList.contains('active')) return;
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
   if (e.code === 'Space') { e.preventDefault(); togglePauseResume(); }
   else if (e.code === 'KeyA') btnBack.click();
@@ -377,11 +421,10 @@ document.addEventListener('keydown', (e) => {
 });
 
 // Init
-loadKPIs(); renderLibrary();
+loadKPIs(); renderLibrary(); renderVocab();
+document.getElementById('search-input').addEventListener('input', renderLibrary);
+document.getElementById('vocab-search').addEventListener('input', renderVocab);
 
-// Register Service Worker for PWA
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js').catch(err => console.error('PWA failed', err));
-  });
+  window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(()=>{}));
 }
