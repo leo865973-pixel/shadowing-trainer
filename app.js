@@ -289,14 +289,6 @@ btnSpeak.addEventListener('click', () => {
 // Initialization
 loadKPIs();
 
-// Register Service Worker for PWA
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js')
-      .then(reg => console.log('PWA ServiceWorker registered'))
-      .catch(err => console.error('PWA ServiceWorker failed', err));
-  });
-}
 
 // 切換文本解析開關
 btnToggleMarkup.addEventListener('click', () => {
@@ -317,12 +309,11 @@ btnToggleMarkup.addEventListener('click', () => {
 
 // --- 文本解析引擎 (Rule-based) ---
 function analyzeSentence(sentence) {
-  // 虛詞清單 (不加粗)
   const functionWords = new Set(['a','an','the','and','but','or','for','nor','so','yet','at','by','in','of','on','to','with','as','from','into','like','over','after','before','between','out','up','down','he','she','it','they','we','you','i','me','him','her','us','them','my','your','his','its','our','their','is','am','are','was','were','be','been','being','have','has','had','do','does','did','can','could','shall','should','will','would','may','might','must','this','that','these','those']);
   const vowels = ['a','e','i','o','u'];
 
   let words = sentence.split(' ');
-  let result = [];
+  let result = '';
 
   for(let i = 0; i < words.length; i++) {
     let word = words[i];
@@ -335,28 +326,64 @@ function analyzeSentence(sentence) {
       displayWord = `<strong>${word}</strong>`;
     }
 
-    // 2. 連音 (_)：前字子音結尾 + 後字母音開頭
+    // 2. 連音 (_)
     let linking = '';
     if (cleanWord && nextWord) {
       let lastChar = cleanWord.slice(-1);
-      // 處理字尾是 e 的情況 (通常不發音，看前一個字母)
       if (lastChar === 'e' && cleanWord.length > 1) lastChar = cleanWord.slice(-2, -1);
-      
       let nextFirstChar = nextWord.charAt(0);
       if (!vowels.includes(lastChar) && lastChar !== 'y' && lastChar !== 'w' && vowels.includes(nextFirstChar)) {
         linking = '<span class="linking">_</span>';
       }
     }
 
-    // 3. 停頓 (//)：遇到標點符號，或特定連接詞前
+    // 3. 停頓 (//)
     let pause = '';
-    if (word.match(/[,.;:!?]/)) {
-      pause = '<span class="pause">//</span>';
-    } else if (nextWord && ['and','but','or','because','if','when'].includes(nextWord)) {
+    if (word.match(/[,.;:!?]/) || (nextWord && ['and','but','or','because','if','when'].includes(nextWord))) {
       pause = '<span class="pause">//</span>';
     }
 
-    result.push(displayWord + linking + pause);
+    // 組合邏輯：有連音就不加空白，沒連音就加空白
+    result += displayWord;
+    if (linking) {
+      result += linking;
+    } else if (pause) {
+      result += pause + ' ';
+    } else {
+      result += ' ';
+    }
   }
-  return result.join(' ');
+  return result.trim();
+}
+
+// --- 空白鍵暫停/播放快捷鍵 ---
+let isPaused = false;
+document.addEventListener('keydown', (e) => {
+  // 確保只有在訓練畫面，且按下空白鍵時才觸發
+  if (e.code === 'Space' && trainingScreen.classList.contains('active')) {
+    e.preventDefault(); // 防止空白鍵讓網頁往下捲動
+    
+    if (window.speechSynthesis.speaking) {
+      if (isPaused) {
+        window.speechSynthesis.resume();
+        isPaused = false;
+        statusText.innerText = "🎧 LISTEN";
+        statusText.style.color = 'var(--blue)';
+      } else {
+        window.speechSynthesis.pause();
+        isPaused = true;
+        statusText.innerText = "⏸ PAUSED";
+        statusText.style.color = 'var(--gray-dark)';
+      }
+    }
+  }
+});
+
+// Register Service Worker for PWA
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js')
+      .then(reg => console.log('PWA ServiceWorker registered'))
+      .catch(err => console.error('PWA ServiceWorker failed', err));
+  });
 }

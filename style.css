@@ -64,7 +64,7 @@ textarea:focus { outline: none; border-color: var(--blue); }
 
 .training-container { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 20px 0; }
 
-.sentence-display { font-size: 28px; line-height: 1.4; margin: 20px 0; color: var(--text-main); min-height: 120px; display: flex; align-items: center; justify-content: center;}
+.sentence-display { font-size: 28px; line-height: 1.6; margin: 20px 0; color: var(--text-main); min-height: 120px; text-align: center; display: block; word-wrap: break-word; }
 
 .transcript-box { background: #f7f7f7; width: 100%; padding: 15px; border-radius: 15px; min-height: 60px; font-style: italic; color: #888; border: 2px dashed var(--gray); }
 
