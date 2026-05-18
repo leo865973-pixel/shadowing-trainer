@@ -1,3 +1,20 @@
+// FIREBASE IMPORTS
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+import { getFirestore, collection, addDoc } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCxP07UyljApuiaz3EQXvZrkKZguA870wA",
+  authDomain: "shadow-training-tool.firebaseapp.com",
+  databaseURL: "https://shadow-training-tool-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "shadow-training-tool",
+  storageBucket: "shadow-training-tool.firebasestorage.app",
+  messagingSenderId: "432658667170",
+  appId: "1:432658667170:web:80ec24927d0d2a72f529fb"
+};
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const sessionId = 'session_' + Math.random().toString(36).substr(2, 9);
+
 // DOM Elements
 const screens = {
   setup: document.getElementById('setup-screen'),
@@ -20,14 +37,25 @@ const statusText = document.getElementById('status-text');
 const userTranscript = document.getElementById('user-transcript');
 const voiceSelect = document.getElementById('voice-select');
 
+// 這裡修復了遺失的按鈕綁定！
+const btnStart = document.getElementById('btn-start');
+const btnExit = document.getElementById('btn-exit');
+const btnNext = document.getElementById('btn-next');
+const btnBack = document.getElementById('btn-back');
+const btnReplay = document.getElementById('btn-replay');
+const btnSpeak = document.getElementById('btn-speak');
+const btnPause = document.getElementById('btn-pause');
+const btnToggleMarkup = document.getElementById('btn-toggle-markup');
+
 // State
 let sentences = [];
 let currentIndex = 0;
 let mode = 'beginner';
 let timerId = null;
 let isPaused = false;
-let currentTextId = null; // Track which text is loaded
-let vocabShadowingMode = null; // { wordId, targetWord }
+let showMarkup = false;
+let currentTextId = null; 
+let vocabShadowingMode = null; 
 
 // Speech Recognition & Synthesis
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -65,7 +93,6 @@ function loadKPIs() {
   }
   document.getElementById('kpi-streak').innerText = streak;
 
-  // Contextual KPI (Global vs Local Text)
   if (currentTextId) {
     const textData = library.find(t => t.id === currentTextId);
     document.getElementById('label-sentences').innerText = "Text Sentences";
@@ -140,7 +167,7 @@ window.loadTextToPractice = (id) => {
 };
 
 // --- Vocab & SRS System ---
-const SRS_INTERVALS = [0, 1, 3, 7, 14, 999]; // Days
+const SRS_INTERVALS = [0, 1, 3, 7, 14, 999]; 
 
 function renderVocab() {
   const now = Date.now();
@@ -185,7 +212,6 @@ window.playVoice = (text) => {
   window.speechSynthesis.speak(u);
 };
 
-// Add Vocab Modal
 document.getElementById('btn-add-vocab').onclick = () => {
   document.getElementById('v-word').value = '';
   document.getElementById('v-trans').value = '';
@@ -255,7 +281,7 @@ window.processReview = (remembered) => {
   v.nextReview = Date.now() + (SRS_INTERVALS[v.level] * 86400000);
   localStorage.setItem('shadow_vocab', JSON.stringify(vocabDB));
   
-  reviewQueue.shift(); // Remove from queue
+  reviewQueue.shift(); 
   showNextReviewCard();
 };
 
@@ -274,7 +300,6 @@ window.jumpToShadowing = (vocabId) => {
   sentences = textItem.text.match(/[^.?!]+[.?!]+/g) || textItem.text.split('\n');
   sentences = sentences.map(s => s.trim()).filter(s => s.length > 0);
   
-  // Find sentence containing the word
   currentIndex = sentences.findIndex(s => s.toLowerCase().includes(v.word.toLowerCase()));
   if (currentIndex === -1) currentIndex = 0;
 
@@ -295,20 +320,36 @@ document.getElementById('btn-return-vocab').onclick = () => {
   switchTab('vocab');
 };
 
-// --- Core Training Engine ---
-function analyzeSentence(sentence) {
+// --- Core Training Engine (含文本解析與高亮) ---
+function analyzeSentence(sentence, showMarkup) {
+  const functionWords = new Set(['a','an','the','and','but','or','for','nor','so','yet','at','by','in','of','on','to','with','as','from','into','like','over','after','before','between','out','up','down','he','she','it','they','we','you','i','me','him','her','us','them','my','your','his','its','our','their','is','am','are','was','were','be','been','being','have','has','had','do','does','did','can','could','shall','should','will','would','may','might','must','this','that','these','those']);
+  const vowels = ['a','e','i','o','u'];
   let words = sentence.split(' ');
   let result = '';
+
   for(let i = 0; i < words.length; i++) {
     let word = words[i];
     let cleanWord = word.replace(/[^\w]/g, '').toLowerCase();
-    
-    // Target Highlight Logic
-    if (vocabShadowingMode && cleanWord === vocabShadowingMode.targetWord) {
-      result += `<span class="word target-word" data-index="${i}">${word}</span> `;
-    } else {
-      result += `<span class="word" data-index="${i}">${word}</span> `;
+    let nextWord = words[i+1] ? words[i+1].replace(/[^\w]/g, '').toLowerCase() : '';
+
+    let displayWord = word;
+    if (showMarkup && cleanWord && !functionWords.has(cleanWord)) displayWord = `<strong>${word}</strong>`;
+
+    let isLinking = false;
+    if (cleanWord && nextWord) {
+      let lastChar = cleanWord.slice(-1);
+      if (lastChar === 'e' && cleanWord.length > 1) lastChar = cleanWord.slice(-2, -1);
+      if (!vowels.includes(lastChar) && lastChar !== 'y' && lastChar !== 'w' && vowels.includes(nextWord.charAt(0))) isLinking = true;
     }
+
+    let isPause = word.match(/[,.;:!?]/) || (nextWord && ['and','but','or','because','if','when'].includes(nextWord));
+    let linkingHTML = (showMarkup && isLinking) ? '<span class="linking">_</span>' : '';
+    let pauseHTML = (showMarkup && isPause) ? '<span class="pause">//</span>' : '';
+    let space = (showMarkup && isLinking) ? '' : ' ';
+
+    let targetClass = (vocabShadowingMode && cleanWord === vocabShadowingMode.targetWord) ? 'target-word' : '';
+
+    result += `<span class="word ${targetClass}" data-index="${i}">${displayWord}</span>${linkingHTML}${pauseHTML}${space}`;
   }
   return result.trim();
 }
@@ -325,7 +366,7 @@ function playCurrentSentence() {
   isPaused = false; btnPause.innerText = "⏸";
 
   const text = sentences[currentIndex];
-  currentSentenceEl.innerHTML = analyzeSentence(text);
+  currentSentenceEl.innerHTML = analyzeSentence(text, showMarkup);
   userTranscript.innerText = "Waiting for you to speak...";
   progressBar.style.width = `${((currentIndex + 1) / sentences.length) * 100}%`;
 
@@ -337,6 +378,8 @@ function playCurrentSentence() {
 
   utterance.onend = () => {
     updateKPI('totalSentences');
+    // Firebase Sync
+    addDoc(collection(db, "sessions"), { sentence: text, mode: mode, timestamp: Date.now(), sessionId: sessionId }).catch(()=>{});
     setMetronomeState('paused');
     timerId = setTimeout(startRecording, LEVEL_CONFIG[mode].pauseMs);
   };
@@ -388,6 +431,10 @@ btnStart.addEventListener('click', () => {
   
   mode = document.querySelector('input[name="level"]:checked').value;
   currentIndex = 0;
+  vocabShadowingMode = null; 
+  document.getElementById('btn-return-vocab').classList.add('hidden');
+  document.getElementById('btn-exit').classList.remove('hidden');
+
   switchScreen('training');
   window.speechSynthesis.speak(new SpeechSynthesisUtterance(''));
   playCurrentSentence();
@@ -398,10 +445,35 @@ btnExit.addEventListener('click', () => {
   switchScreen('setup'); loadKPIs();
 });
 
+btnToggleMarkup.addEventListener('click', () => {
+  showMarkup = !showMarkup;
+  btnToggleMarkup.style.color = showMarkup ? 'var(--accent)' : 'var(--text-muted)';
+  if (sentences.length > 0) currentSentenceEl.innerHTML = analyzeSentence(sentences[currentIndex], showMarkup);
+});
+
 btnNext.addEventListener('click', () => { if (currentIndex < sentences.length - 1) { currentIndex++; playCurrentSentence(); } });
 btnBack.addEventListener('click', () => { if (currentIndex > 0) { currentIndex--; playCurrentSentence(); } });
 btnReplay.addEventListener('click', playCurrentSentence);
 btnSpeak.addEventListener('click', () => { window.speechSynthesis.cancel(); clearTimeout(timerId); startRecording(); });
+
+// Chunk Playback
+currentSentenceEl.addEventListener('click', (e) => {
+  const wordSpan = e.target.closest('.word');
+  if (!wordSpan) return;
+  const startIndex = parseInt(wordSpan.getAttribute('data-index'));
+  const words = sentences[currentIndex].split(' ');
+  let endIndex = startIndex;
+  for (let i = startIndex; i < words.length; i++) {
+    let w = words[i], nw = words[i+1] ? words[i+1].replace(/[^\w]/g, '').toLowerCase() : '';
+    if (w.match(/[,.;:!?]/) || (nw && ['and','but','or','because','if','when'].includes(nw)) || i === words.length - 1) { endIndex = i; break; }
+  }
+  window.speechSynthesis.cancel();
+  const utterance = new SpeechSynthesisUtterance(words.slice(startIndex, endIndex + 1).join(' '));
+  utterance.lang = 'en-US'; utterance.rate = LEVEL_CONFIG[mode].rate;
+  const selectedVoice = availableVoices.find(v => v.voiceURI === voiceSelect.value);
+  if (selectedVoice) utterance.voice = selectedVoice;
+  window.speechSynthesis.speak(utterance);
+});
 
 function togglePauseResume() {
   if (window.speechSynthesis.speaking) {
