@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Shadowing Trainer Pro</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="style.css">
+  <meta name="theme-color" content="#58cc02">
+</head>
+<body>
+
+  <!-- SETUP SCREEN -->
+  <div id="setup-screen" class="screen active">
+    <header>
+      <h1>Shadowing Trainer Pro</h1>
+      <p>Personal Rhythm & Fluency AI</p>
+    </header>
+
+    <div class="kpi-dashboard">
+      <div class="kpi-card">🔥 Streak: <span id="kpi-streak">0</span></div>
+      <div class="kpi-card">📚 Sentences: <span id="kpi-sentences">0</span></div>
+      <div class="kpi-card">🎤 Attempts: <span id="kpi-attempts">0</span></div>
+    </div>
+
+    <div class="setup-container">
+      <textarea id="text-input" placeholder="Paste your English text here... Let's practice!"></textarea>
+      
+      <div class="level-selector">
+        <label><input type="radio" name="level" value="beginner" checked> 🟢 Beginner (Slow & Paused)</label>
+        <label><input type="radio" name="level" value="normal"> 🔵 Normal (Medium Pace)</label>
+        <label><input type="radio" name="level" value="fluency"> 🔴 Fluency (Auto-flow)</label>
+      </div>
+
+      <button id="btn-start" class="btn primary-btn">START TRAINING</button>
+    </div>
+  </div>
+
+  <!-- TRAINING SCREEN -->
+  <div id="training-screen" class="screen">
+    <header class="training-header">
+      <button id="btn-exit" class="btn secondary-btn small-btn">✖ Exit</button>
+      <div class="progress-container">
+        <div id="progress-bar" class="progress-bar"></div>
+      </div>
+      <div id="sentence-counter" class="counter">0 / 0</div>
+    </header>
+
+    <div class="training-container">
+      <div id="pulse-indicator" class="pulse"></div>
+      <div id="status-text" class="status-label">GET READY...</div>
+
+      <h2 id="current-sentence" class="sentence-display"></h2>
+      
+      <div class="transcript-box">
+        <span id="user-transcript">Your speech will appear here...</span>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button id="btn-back" class="btn icon-btn">⏮</button>
+      <button id="btn-replay" class="btn icon-btn">🔁</button>
+      <button id="btn-speak" class="btn icon-btn mic-btn">🎤</button>
+      <button id="btn-next" class="btn icon-btn">⏭</button>
+    </div>
+  </div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>

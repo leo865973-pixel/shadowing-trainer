@@ -1,0 +1,67 @@
+:root {
+  --green: #58cc02;
+  --green-shadow: #58a700;
+  --blue: #1cb0f6;
+  --blue-shadow: #1899d6;
+  --gray: #e5e5e5;
+  --gray-dark: #afafaf;
+  --text-main: #4b4b4b;
+  --bg-color: #ffffff;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+body { background-color: var(--bg-color); color: var(--text-main); overscroll-behavior-y: contain; }
+
+.screen { display: none; min-height: 100vh; flex-direction: column; padding: 20px; max-width: 600px; margin: 0 auto; }
+.screen.active { display: flex; }
+
+header { text-align: center; margin-bottom: 20px; }
+h1 { color: var(--green); font-size: 24px; margin-bottom: 5px; }
+
+/* KPI Dashboard */
+.kpi-dashboard { display: flex; justify-content: space-between; margin-bottom: 20px; gap: 10px; }
+.kpi-card { background: var(--gray); padding: 10px; border-radius: 12px; font-weight: bold; flex: 1; text-align: center; font-size: 14px; }
+
+/* Setup Controls */
+textarea { width: 100%; height: 150px; padding: 15px; border: 2px solid var(--gray); border-radius: 15px; font-size: 16px; resize: none; margin-bottom: 15px; }
+textarea:focus { outline: none; border-color: var(--blue); }
+.level-selector { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }
+.level-selector label { background: var(--gray); padding: 15px; border-radius: 12px; cursor: pointer; font-weight: bold; }
+
+/* Buttons */
+.btn { border: none; border-radius: 15px; padding: 15px; font-size: 18px; font-weight: bold; cursor: pointer; text-transform: uppercase; transition: transform 0.1s; }
+.btn:active { transform: translateY(4px); box-shadow: none !important; }
+.primary-btn { background: var(--green); color: white; width: 100%; box-shadow: 0 4px 0 var(--green-shadow); }
+.secondary-btn { background: var(--gray); color: var(--text-main); box-shadow: 0 4px 0 var(--gray-dark); }
+.small-btn { padding: 8px 15px; font-size: 14px; }
+.icon-btn { flex: 1; background: var(--blue); color: white; box-shadow: 0 4px 0 var(--blue-shadow); font-size: 24px; padding: 10px; }
+.mic-btn { background: var(--green); box-shadow: 0 4px 0 var(--green-shadow); }
+
+/* Training Screen */
+.training-header { display: flex; align-items: center; justify-content: space-between; gap: 15px; }
+.progress-container { flex: 1; background: var(--gray); height: 16px; border-radius: 8px; overflow: hidden; }
+.progress-bar { height: 100%; background: var(--green); width: 0%; transition: width 0.3s; }
+.counter { font-weight: bold; color: var(--gray-dark); }
+
+.training-container { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 20px 0; }
+
+.sentence-display { font-size: 28px; line-height: 1.4; margin: 20px 0; color: var(--text-main); min-height: 120px; display: flex; align-items: center; justify-content: center;}
+
+.transcript-box { background: #f7f7f7; width: 100%; padding: 15px; border-radius: 15px; min-height: 60px; font-style: italic; color: #888; border: 2px dashed var(--gray); }
+
+.controls { display: flex; gap: 10px; margin-top: auto; padding-bottom: 20px; }
+
+/* Visual Metronome Pulse */
+.pulse { width: 80px; height: 80px; border-radius: 50%; background: var(--gray); transition: background-color 0.3s; margin-bottom: 10px; }
+.status-label { font-weight: bold; color: var(--gray-dark); margin-bottom: 20px; letter-spacing: 1px; text-transform: uppercase; }
+
+/* Pulse States */
+.pulse.listening { background: var(--blue); animation: pulse-anim 1s infinite; }
+.pulse.speaking { background: var(--green); animation: pulse-anim 1.5s infinite; }
+.pulse.paused { background: var(--gray); opacity: 0.5; }
+
+@keyframes pulse-anim {
+  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(0, 0, 0, 0.2); }
+  70% { transform: scale(1.1); box-shadow: 0 0 0 15px rgba(0, 0, 0, 0); }
+  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(0, 0, 0, 0); }
+}
