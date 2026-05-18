@@ -36,6 +36,7 @@ const pulseIndicator = document.getElementById('pulse-indicator');
 const statusText = document.getElementById('status-text');
 const userTranscript = document.getElementById('user-transcript');
 const voiceSelect = document.getElementById('voice-select');
+const chkContinuous = document.getElementById('chk-continuous');
 
 const btnStart = document.getElementById('btn-start');
 const btnExit = document.getElementById('btn-exit');
@@ -53,8 +54,10 @@ let mode = 'beginner';
 let timerId = null;
 let isPaused = false;
 let showMarkup = false;
+let isContinuous = false;
 let currentTextId = null; 
 let vocabShadowingMode = null; 
+let currentDetailVocabId = null;
 
 // --- Data Storage & Firebase Sync ---
 let library = JSON.parse(localStorage.getItem('shadow_library')) || [];
@@ -288,6 +291,7 @@ function renderVocab() {
 window.openVocabDetail = (id) => {
   const v = vocabDB.find(x => x.id === id);
   if (!v) return;
+  currentDetailVocabId = id;
   document.getElementById('vd-word').innerText = v.word;
   document.getElementById('vd-pos').innerText = v.pos || 'noun';
   document.getElementById('vd-pos').className = `badge ${v.pos || 'noun'}`;
@@ -319,6 +323,7 @@ window.playVoice = (text) => {
   window.speechSynthesis.speak(u);
 };
 
+// Add Vocab
 document.getElementById('btn-add-vocab').onclick = () => {
   document.getElementById('v-word').value = '';
   document.getElementById('v-trans').value = '';
@@ -339,6 +344,34 @@ document.getElementById('btn-save-vocab').onclick = () => {
   syncData();
   document.getElementById('vocab-modal').classList.remove('active');
   renderVocab(); alert("Added to Vocab!");
+};
+
+// Edit Vocab
+let editingVocabId = null;
+document.getElementById('btn-vd-edit').onclick = () => {
+  const v = vocabDB.find(x => x.id === currentDetailVocabId);
+  if(!v) return;
+  editingVocabId = v.id;
+  document.getElementById('ev-word').value = v.word;
+  document.getElementById('ev-trans').value = v.translation;
+  document.getElementById('ev-pos').value = v.pos || 'noun';
+  document.getElementById('ev-example').value = v.example || '';
+  document.getElementById('vocab-detail-modal').classList.remove('active');
+  document.getElementById('edit-vocab-modal').classList.add('active');
+};
+
+document.getElementById('btn-save-ev').onclick = () => {
+  const v = vocabDB.find(x => x.id === editingVocabId);
+  if(v) {
+    v.word = document.getElementById('ev-word').value.trim();
+    v.translation = document.getElementById('ev-trans').value.trim();
+    v.pos = document.getElementById('ev-pos').value;
+    v.example = document.getElementById('ev-example').value;
+    syncData();
+    renderVocab();
+    document.getElementById('edit-vocab-modal').classList.remove('active');
+    openVocabDetail(v.id);
+  }
 };
 
 // SRS Review Logic
@@ -428,10 +461,12 @@ window.jumpToShadowing = (vocabId) => {
 
 document.getElementById('btn-return-vocab').onclick = () => {
   window.speechSynthesis.cancel(); clearTimeout(timerId);
+  const returnId = vocabShadowingMode.wordId;
   vocabShadowingMode = null;
   document.getElementById('btn-return-vocab').classList.add('hidden');
   document.getElementById('btn-exit').classList.remove('hidden');
   switchTab('vocab');
+  openVocabDetail(returnId); // 無縫返回卡片狀態
 };
 
 // --- Core Training Engine ---
@@ -512,7 +547,7 @@ function startRecording() {
 }
 
 function autoAdvanceCheck() {
-  if (LEVEL_CONFIG[mode].autoNext) {
+  if (LEVEL_CONFIG[mode].autoNext || isContinuous) {
     timerId = setTimeout(() => { if (currentIndex < sentences.length - 1) { currentIndex++; playCurrentSentence(); } }, 1500);
   }
 }
@@ -543,6 +578,7 @@ btnStart.addEventListener('click', () => {
   sentences = sentences.map(s => s.trim()).filter(s => s.length > 0);
   
   mode = document.querySelector('input[name="level"]:checked').value;
+  isContinuous = chkContinuous.checked;
   currentIndex = 0;
   vocabShadowingMode = null; 
   document.getElementById('btn-return-vocab').classList.add('hidden');
