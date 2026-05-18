@@ -28,6 +28,25 @@ textarea:focus { outline: none; border-color: var(--blue); }
 .level-selector { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }
 .level-selector label { background: var(--gray); padding: 15px; border-radius: 12px; cursor: pointer; font-weight: bold; }
 
+/* Voice Settings */
+.voice-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 15px;
+  text-align: left;
+  font-weight: bold;
+}
+#voice-select {
+  padding: 12px;
+  border-radius: 12px;
+  border: 2px solid var(--gray);
+  font-size: 16px;
+  background-color: white;
+  outline: none;
+}
+#voice-select:focus { border-color: var(--blue); }
+
 /* Buttons */
 .btn { border: none; border-radius: 15px; padding: 15px; font-size: 18px; font-weight: bold; cursor: pointer; text-transform: uppercase; transition: transform 0.1s; }
 .btn:active { transform: translateY(4px); box-shadow: none !important; }

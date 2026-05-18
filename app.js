@@ -31,6 +31,38 @@ const sentenceCounter = document.getElementById('sentence-counter');
 const pulseIndicator = document.getElementById('pulse-indicator');
 const statusText = document.getElementById('status-text');
 const userTranscript = document.getElementById('user-transcript');
+const voiceSelect = document.getElementById('voice-select');
+let availableVoices = [];
+
+// 抓取並過濾出英文語音，標註出高品質的神經網路聲音
+function populateVoices() {
+  availableVoices = window.speechSynthesis.getVoices();
+  
+  // 只篩選英文發音
+  const englishVoices = availableVoices.filter(v => v.lang.startsWith('en'));
+  
+  if (englishVoices.length > 0) {
+    voiceSelect.innerHTML = '';
+    englishVoices.forEach(voice => {
+      const option = document.createElement('option');
+      option.value = voice.voiceURI;
+      
+      // 尋找各平台的高音質特徵關鍵字並加上星星
+      let label = voice.name;
+      if (label.includes('Natural') || label.includes('Online') || label.includes('Google') || label.includes('Premium')) {
+        label = '⭐ ' + label + ' (Best)';
+      }
+      
+      option.textContent = label;
+      voiceSelect.appendChild(option);
+    });
+  }
+}
+
+// 瀏覽器需要一點時間載入語音，所以要用 onvoiceschanged 監聽
+window.speechSynthesis.onvoiceschanged = populateVoices;
+// 網頁載入時也嘗試抓一次
+populateVoices();
 
 const btnBack = document.getElementById('btn-back');
 const btnNext = document.getElementById('btn-next');
@@ -130,7 +162,14 @@ function playCurrentSentence() {
   const utterance = new SpeechSynthesisUtterance(text);
   utterance.lang = 'en-US';
   utterance.rate = LEVEL_CONFIG[mode].rate;
-
+  
+  // 套用使用者選擇的語音
+  const selectedVoiceURI = voiceSelect.value;
+  const selectedVoice = availableVoices.find(v => v.voiceURI === selectedVoiceURI);
+  if (selectedVoice) {
+    utterance.voice = selectedVoice;
+  }
+ 
   utterance.onend = () => {
     updateKPI('totalSentences');
     backupToFirebase(text, mode); // Sync data

@@ -1,5 +1,5 @@
 // sw.js
-const CACHE_NAME = 'shadow-pro-v1';
+const CACHE_NAME = 'shadow-pro-v2';
 const ASSETS = [
   '/',
   '/index.html',
