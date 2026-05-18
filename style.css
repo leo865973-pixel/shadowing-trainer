@@ -102,3 +102,32 @@ textarea:focus { outline: none; border-color: var(--blue); }
   font-weight: bold;
   opacity: 0.8;
 }
+
+/* Shortcut Hints */
+.shortcut-hints {
+  display: flex;
+  justify-content: center;
+  gap: 15px;
+  font-size: 13px;
+  color: var(--gray-dark);
+  margin-bottom: 15px;
+  flex-wrap: wrap;
+}
+.shortcut-hints b {
+  background: var(--gray);
+  padding: 3px 8px;
+  border-radius: 6px;
+  color: var(--text-main);
+  font-family: monospace;
+}
+
+/* Clickable Words */
+.word {
+  cursor: pointer;
+  transition: color 0.2s, background-color 0.2s;
+  border-radius: 4px;
+}
+.word:hover {
+  color: var(--blue);
+  background-color: rgba(28, 176, 246, 0.1);
+}

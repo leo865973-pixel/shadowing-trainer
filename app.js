@@ -154,11 +154,7 @@ function playCurrentSentence() {
   if (recognition) recognition.stop();
 
   const text = sentences[currentIndex];
-    if (showMarkup) {
-    currentSentenceEl.innerHTML = analyzeSentence(text);
-  } else {
-    currentSentenceEl.innerText = text;
-  }
+  currentSentenceEl.innerHTML = analyzeSentence(text, showMarkup);
   userTranscript.innerText = "Waiting for you to speak...";
   sentenceCounter.innerText = `${currentIndex + 1} / ${sentences.length}`;
   progressBar.style.width = `${((currentIndex + 1) / sentences.length) * 100}%`;
@@ -298,17 +294,12 @@ btnToggleMarkup.addEventListener('click', () => {
   btnToggleMarkup.style.color = showMarkup ? 'white' : 'var(--text-main)';
   
   // 立即更新當前句子的畫面
-  if (sentences.length > 0) {
-    if (showMarkup) {
-      currentSentenceEl.innerHTML = analyzeSentence(sentences[currentIndex]);
-    } else {
-      currentSentenceEl.innerText = sentences[currentIndex];
-    }
-  }
+  if (sentences.length > 0) currentSentenceEl.innerHTML = analyzeSentence(sentences[currentIndex], showMarkup);
+
 });
 
-// --- 文本解析引擎 (Rule-based) ---
-function analyzeSentence(sentence) {
+// --- 文本解析引擎 (支援點擊與開關) ---
+function analyzeSentence(sentence, showMarkup) {
   const functionWords = new Set(['a','an','the','and','but','or','for','nor','so','yet','at','by','in','of','on','to','with','as','from','into','like','over','after','before','between','out','up','down','he','she','it','they','we','you','i','me','him','her','us','them','my','your','his','its','our','their','is','am','are','was','were','be','been','being','have','has','had','do','does','did','can','could','shall','should','will','would','may','might','must','this','that','these','those']);
   const vowels = ['a','e','i','o','u'];
 
@@ -320,49 +311,87 @@ function analyzeSentence(sentence) {
     let cleanWord = word.replace(/[^\w]/g, '').toLowerCase();
     let nextWord = words[i+1] ? words[i+1].replace(/[^\w]/g, '').toLowerCase() : '';
 
-    // 1. 重音 (實詞加粗)
+    // 1. 重音
     let displayWord = word;
-    if (cleanWord && !functionWords.has(cleanWord)) {
+    if (showMarkup && cleanWord && !functionWords.has(cleanWord)) {
       displayWord = `<strong>${word}</strong>`;
     }
 
-    // 2. 連音 (_)
-    let linking = '';
+    // 2. 連音
+    let isLinking = false;
     if (cleanWord && nextWord) {
       let lastChar = cleanWord.slice(-1);
       if (lastChar === 'e' && cleanWord.length > 1) lastChar = cleanWord.slice(-2, -1);
       let nextFirstChar = nextWord.charAt(0);
       if (!vowels.includes(lastChar) && lastChar !== 'y' && lastChar !== 'w' && vowels.includes(nextFirstChar)) {
-        linking = '<span class="linking">_</span>';
+        isLinking = true;
       }
     }
 
-    // 3. 停頓 (//)
-    let pause = '';
+    // 3. 停頓
+    let isPause = false;
     if (word.match(/[,.;:!?]/) || (nextWord && ['and','but','or','because','if','when'].includes(nextWord))) {
-      pause = '<span class="pause">//</span>';
+      isPause = true;
     }
 
-    // 組合邏輯：有連音就不加空白，沒連音就加空白
-    result += displayWord;
-    if (linking) {
-      result += linking;
-    } else if (pause) {
-      result += pause + ' ';
-    } else {
-      result += ' ';
-    }
+    let linkingHTML = (showMarkup && isLinking) ? '<span class="linking">_</span>' : '';
+    let pauseHTML = (showMarkup && isPause) ? '<span class="pause">//</span>' : '';
+    let space = (showMarkup && isLinking) ? '' : ' ';
+
+    // 將每個單字包裝成可點擊的 span，並記錄它的 index
+    result += `<span class="word" data-index="${i}">${displayWord}</span>${linkingHTML}${pauseHTML}${space}`;
   }
   return result.trim();
 }
 
-// --- 空白鍵暫停/播放快捷鍵 ---
+// --- 點擊單字播放到停頓點 (Chunk Playback) ---
+currentSentenceEl.addEventListener('click', (e) => {
+  const wordSpan = e.target.closest('.word');
+  if (!wordSpan) return;
+
+  const startIndex = parseInt(wordSpan.getAttribute('data-index'));
+  const words = sentences[currentIndex].split(' ');
+  
+  // 往後尋找停頓點
+  let endIndex = startIndex;
+  for (let i = startIndex; i < words.length; i++) {
+    let word = words[i];
+    let nextWord = words[i+1] ? words[i+1].replace(/[^\w]/g, '').toLowerCase() : '';
+    let isPause = word.match(/[,.;:!?]/) || (nextWord && ['and','but','or','because','if','when'].includes(nextWord));
+    
+    if (isPause || i === words.length - 1) {
+      endIndex = i;
+      break;
+    }
+  }
+
+  // 組合要播放的片段
+  const chunkText = words.slice(startIndex, endIndex + 1).join(' ');
+  
+  // 停止目前的語音，只播放該片段
+  window.speechSynthesis.cancel();
+  const utterance = new SpeechSynthesisUtterance(chunkText);
+  utterance.lang = 'en-US';
+  utterance.rate = LEVEL_CONFIG[mode].rate;
+  
+  const selectedVoiceURI = voiceSelect.value;
+  const selectedVoice = availableVoices.find(v => v.voiceURI === selectedVoiceURI);
+  if (selectedVoice) utterance.voice = selectedVoice;
+
+  window.speechSynthesis.speak(utterance);
+});
+
+// --- 鍵盤快捷鍵 (A, S, D, Space) ---
 let isPaused = false;
 document.addEventListener('keydown', (e) => {
-  // 確保只有在訓練畫面，且按下空白鍵時才觸發
-  if (e.code === 'Space' && trainingScreen.classList.contains('active')) {
-    e.preventDefault(); // 防止空白鍵讓網頁往下捲動
-    
+  // 確保只在訓練畫面觸發，且沒有在輸入框打字
+  if (!trainingScreen.classList.contains('active')) return;
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+  const key = e.code;
+
+  if (key === 'Space') {
+    e.preventDefault(); // 防止網頁往下捲動
     if (window.speechSynthesis.speaking) {
       if (isPaused) {
         window.speechSynthesis.resume();
@@ -376,6 +405,12 @@ document.addEventListener('keydown', (e) => {
         statusText.style.color = 'var(--gray-dark)';
       }
     }
+  } else if (key === 'KeyA') {
+    btnBack.click();
+  } else if (key === 'KeyS') {
+    btnReplay.click();
+  } else if (key === 'KeyD') {
+    btnNext.click();
   }
 });
 
