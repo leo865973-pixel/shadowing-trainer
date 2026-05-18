@@ -84,3 +84,21 @@ textarea:focus { outline: none; border-color: var(--blue); }
   70% { transform: scale(1.1); box-shadow: 0 0 0 15px rgba(0, 0, 0, 0); }
   100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(0, 0, 0, 0); }
 }
+
+/* Text Analysis Markup Styles */
+.sentence-display strong {
+  color: var(--blue);
+  font-weight: 900;
+}
+.sentence-display .linking {
+  color: var(--gray-dark);
+  margin: 0 2px;
+  font-weight: bold;
+  opacity: 0.6;
+}
+.sentence-display .pause {
+  color: var(--green);
+  margin: 0 6px;
+  font-weight: bold;
+  opacity: 0.8;
+}

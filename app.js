@@ -25,6 +25,7 @@ const trainingScreen = document.getElementById('training-screen');
 const textInput = document.getElementById('text-input');
 const btnStart = document.getElementById('btn-start');
 const btnExit = document.getElementById('btn-exit');
+const btnToggleMarkup = document.getElementById('btn-toggle-markup');
 const currentSentenceEl = document.getElementById('current-sentence');
 const progressBar = document.getElementById('progress-bar');
 const sentenceCounter = document.getElementById('sentence-counter');
@@ -73,6 +74,7 @@ const btnSpeak = document.getElementById('btn-speak');
 let sentences = [];
 let currentIndex = 0;
 let mode = 'beginner';
+let showMarkup = false;
 let timerId = null;
 
 // Speech Recognition setup
@@ -152,7 +154,11 @@ function playCurrentSentence() {
   if (recognition) recognition.stop();
 
   const text = sentences[currentIndex];
-  currentSentenceEl.innerText = `"${text}"`;
+    if (showMarkup) {
+    currentSentenceEl.innerHTML = analyzeSentence(text);
+  } else {
+    currentSentenceEl.innerText = text;
+  }
   userTranscript.innerText = "Waiting for you to speak...";
   sentenceCounter.innerText = `${currentIndex + 1} / ${sentences.length}`;
   progressBar.style.width = `${((currentIndex + 1) / sentences.length) * 100}%`;
@@ -290,4 +296,67 @@ if ('serviceWorker' in navigator) {
       .then(reg => console.log('PWA ServiceWorker registered'))
       .catch(err => console.error('PWA ServiceWorker failed', err));
   });
+}
+
+// 切換文本解析開關
+btnToggleMarkup.addEventListener('click', () => {
+  showMarkup = !showMarkup;
+  btnToggleMarkup.innerText = showMarkup ? '👁️ 解析: 開' : '👁️ 解析: 關';
+  btnToggleMarkup.style.background = showMarkup ? 'var(--blue)' : 'var(--gray)';
+  btnToggleMarkup.style.color = showMarkup ? 'white' : 'var(--text-main)';
+  
+  // 立即更新當前句子的畫面
+  if (sentences.length > 0) {
+    if (showMarkup) {
+      currentSentenceEl.innerHTML = analyzeSentence(sentences[currentIndex]);
+    } else {
+      currentSentenceEl.innerText = sentences[currentIndex];
+    }
+  }
+});
+
+// --- 文本解析引擎 (Rule-based) ---
+function analyzeSentence(sentence) {
+  // 虛詞清單 (不加粗)
+  const functionWords = new Set(['a','an','the','and','but','or','for','nor','so','yet','at','by','in','of','on','to','with','as','from','into','like','over','after','before','between','out','up','down','he','she','it','they','we','you','i','me','him','her','us','them','my','your','his','its','our','their','is','am','are','was','were','be','been','being','have','has','had','do','does','did','can','could','shall','should','will','would','may','might','must','this','that','these','those']);
+  const vowels = ['a','e','i','o','u'];
+
+  let words = sentence.split(' ');
+  let result = [];
+
+  for(let i = 0; i < words.length; i++) {
+    let word = words[i];
+    let cleanWord = word.replace(/[^\w]/g, '').toLowerCase();
+    let nextWord = words[i+1] ? words[i+1].replace(/[^\w]/g, '').toLowerCase() : '';
+
+    // 1. 重音 (實詞加粗)
+    let displayWord = word;
+    if (cleanWord && !functionWords.has(cleanWord)) {
+      displayWord = `<strong>${word}</strong>`;
+    }
+
+    // 2. 連音 (_)：前字子音結尾 + 後字母音開頭
+    let linking = '';
+    if (cleanWord && nextWord) {
+      let lastChar = cleanWord.slice(-1);
+      // 處理字尾是 e 的情況 (通常不發音，看前一個字母)
+      if (lastChar === 'e' && cleanWord.length > 1) lastChar = cleanWord.slice(-2, -1);
+      
+      let nextFirstChar = nextWord.charAt(0);
+      if (!vowels.includes(lastChar) && lastChar !== 'y' && lastChar !== 'w' && vowels.includes(nextFirstChar)) {
+        linking = '<span class="linking">_</span>';
+      }
+    }
+
+    // 3. 停頓 (//)：遇到標點符號，或特定連接詞前
+    let pause = '';
+    if (word.match(/[,.;:!?]/)) {
+      pause = '<span class="pause">//</span>';
+    } else if (nextWord && ['and','but','or','because','if','when'].includes(nextWord)) {
+      pause = '<span class="pause">//</span>';
+    }
+
+    result.push(displayWord + linking + pause);
+  }
+  return result.join(' ');
 }
