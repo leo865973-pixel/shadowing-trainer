@@ -13,7 +13,7 @@
   <!-- 自訂 Toast 提示訊息 -->
   <div id="custom-toast" class="toast hidden">Message</div>
 
-  <!-- 自訂 Confirm 確認視窗 (Z-index 已調高) -->
+  <!-- 自訂 Confirm 確認視窗 -->
   <div id="confirm-modal" class="modal-overlay">
     <div class="modal-content glass" style="text-align: center;">
       <h3 id="confirm-msg" style="margin-bottom: 25px; font-size: 18px;">Are you sure?</h3>
@@ -40,6 +40,10 @@
       <div class="kpi-card glass">
         <div class="kpi-value"><span id="kpi-streak">0</span> <button class="reset-btn" onclick="resetKPI('streak')">↺</button></div>
         <div class="kpi-label">Day Streak</div>
+      </div>
+      <div class="kpi-card glass">
+        <div class="kpi-value"><span id="kpi-sentences">0</span></div>
+        <div class="kpi-label" id="label-sentences">Total Sentences</div>
       </div>
       <div class="kpi-card glass">
         <div class="kpi-value"><span id="kpi-attempts">0</span> <button class="reset-btn" onclick="resetKPI('attempts')">↺</button></div>
@@ -163,8 +167,12 @@
     </div>
 
     <div class="shortcut-hints">
-      <span><b>Esc</b> 退出/返回</span> <span><b>Q</b> 解析</span> <span><b>E</b> 加單字</span><br>
-      <span style="margin-top: 8px;"><b>A</b> 上一句</span> <span><b>Space</b> 暫停/繼續</span> <span><b>S</b> 重播</span> <span><b>D</b> 下一句</span>
+      <div class="hint-row">
+        <span><b>Esc</b> 退出/返回</span> <span><b>Q</b> 解析</span> <span><b>E</b> 加單字</span>
+      </div>
+      <div class="hint-row">
+        <span><b>A</b> 上一句</span> <span><b>Space</b> 暫停/繼續</span> <span><b>S</b> 重播</span> <span><b>D</b> 下一句</span>
+      </div>
     </div>
 
     <div class="controls glass">

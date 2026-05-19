@@ -77,13 +77,20 @@ select, .modal-input { width: 100%; padding: 14px; border-radius: var(--radius-m
 
 /* Prominent Search Boxes */
 #search-input, #vocab-search {
+  width: 100%;
+  padding: 18px 24px;
+  font-size: 16px;
+  border-radius: 18px;
   background: #ffffff;
   border: 2px solid var(--accent);
   box-shadow: 0 4px 12px rgba(0, 113, 227, 0.1);
   font-weight: 500;
+  outline: none;
+  transition: all 0.3s ease;
 }
 #search-input:focus, #vocab-search:focus {
-  box-shadow: 0 4px 16px rgba(0, 113, 227, 0.2);
+  box-shadow: 0 6px 20px rgba(0, 113, 227, 0.25);
+  transform: translateY(-1px);
 }
 
 /* Library & Vocab Lists */
@@ -167,8 +174,8 @@ select, .modal-input { width: 100%; padding: 14px; border-radius: var(--radius-m
 ::selection { background: rgba(0, 113, 227, 0.3); }
 
 /* Controls & Shortcuts */
-.shortcut-hints { display: flex; flex-direction: column; align-items: center; gap: 8px; font-size: 12px; color: var(--text-muted); margin-bottom: 15px; }
-.shortcut-hints div { display: flex; gap: 15px; }
+.shortcut-hints { display: flex; flex-direction: column; align-items: center; gap: 10px; font-size: 13px; color: var(--text-muted); margin-bottom: 15px; }
+.shortcut-hints .hint-row { display: flex; gap: 15px; flex-wrap: wrap; justify-content: center; }
 .shortcut-hints b { background: var(--border); padding: 3px 8px; border-radius: 6px; color: var(--text-main); font-family: monospace; }
 .controls { display: flex; width: 100%; gap: 12px; padding: 12px 20px; border-radius: 980px; justify-content: space-between; box-shadow: var(--shadow-md); margin-bottom: 20px; }
 .icon-btn { flex: 1; background: transparent; color: var(--text-main); font-size: 22px; padding: 12px 0; display: flex; align-items: center; justify-content: center; border-radius: 16px; transition: 0.2s; }

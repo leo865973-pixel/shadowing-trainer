@@ -372,7 +372,7 @@ currentSentenceEl.addEventListener('mouseup', (e) => {
     if (selectedText) {
       document.getElementById('v-word').value = selectedText;
       document.getElementById('v-trans').value = '';
-      document.getElementById('v-example').value = ''; // 預設清空
+      document.getElementById('v-example').value = ''; 
       document.getElementById('vocab-modal').classList.add('active');
       
       // Reset Mode
@@ -522,7 +522,7 @@ document.getElementById('btn-return-vocab').onclick = () => {
   document.getElementById('btn-return-vocab').classList.add('hidden');
   document.getElementById('btn-exit').classList.remove('hidden');
   switchTab('vocab');
-  openVocabDetail(returnId); // 無縫返回卡片狀態
+  openVocabDetail(returnId); 
 };
 
 // --- Core Training Engine ---
@@ -639,8 +639,9 @@ tabs.vocab.onclick = () => switchTab('vocab');
 document.getElementById('btn-clear-text').addEventListener('click', () => {
   textInput.value = '';
   currentTextId = null;
+  localStorage.setItem('totalAttempts', '0');
   loadKPIs();
-  showToast("Text cleared", "info");
+  showToast("Text cleared & Attempts reset", "info");
 });
 
 btnStart.addEventListener('click', () => {
@@ -708,6 +709,16 @@ function togglePauseResume() {
 btnPause.addEventListener('click', togglePauseResume);
 
 document.addEventListener('keydown', (e) => {
+  // 1. Global Escape for Modals
+  if (e.code === 'Escape') {
+    const activeModal = document.querySelector('.modal-overlay.active');
+    if (activeModal) {
+      activeModal.classList.remove('active');
+      return;
+    }
+  }
+
+  // 2. Training Screen Shortcuts
   if (!screens.training.classList.contains('active')) return;
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
   
