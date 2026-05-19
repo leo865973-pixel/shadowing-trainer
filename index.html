@@ -10,6 +10,20 @@
 </head>
 <body>
 
+  <!-- 自訂 Toast 提示訊息 -->
+  <div id="custom-toast" class="toast hidden">Message</div>
+
+  <!-- 自訂 Confirm 確認視窗 -->
+  <div id="confirm-modal" class="modal-overlay">
+    <div class="modal-content glass" style="text-align: center;">
+      <h3 id="confirm-msg" style="margin-bottom: 25px; font-size: 18px;">Are you sure?</h3>
+      <div class="modal-actions" style="justify-content: center; gap: 15px;">
+        <button id="btn-confirm-no" class="btn secondary-btn">Cancel</button>
+        <button id="btn-confirm-yes" class="btn primary-btn" style="background: var(--danger);">Yes</button>
+      </div>
+    </div>
+  </div>
+
   <!-- 頂部導覽列 -->
   <nav class="top-nav glass">
     <div class="nav-brand">ShadowPro</div>
@@ -46,7 +60,6 @@
           <select id="voice-select"><option>Loading voices...</option></select>
         </div>
         
-        <!-- 一口氣全文訓練開關 -->
         <div class="continuous-toggle">
           <span style="font-size: 14px; font-weight: 600; color: var(--text-main);">Continuous Full-Text (一口氣全文)</span>
           <label class="switch">
@@ -222,11 +235,15 @@
         <span id="vd-level">Level: 0</span>
         <span id="vd-status"></span>
       </div>
-      <div class="modal-actions">
-        <button class="btn secondary-btn" onclick="document.getElementById('vocab-detail-modal').classList.remove('active')">Close</button>
-        <button id="btn-vd-edit" class="btn secondary-btn">Edit</button>
-        <button id="btn-vd-shadow" class="btn primary-btn" style="background: var(--accent);">🎯 Shadow</button>
-        <button id="btn-vd-delete" class="btn secondary-btn" style="color: var(--danger);">Delete</button>
+      
+      <!-- 獨立一排的 Shadow 按鈕 -->
+      <div class="modal-actions-column">
+        <button id="btn-vd-shadow" class="btn primary-btn" style="background: var(--accent); width: 100%; margin-bottom: 12px;">🎯 Shadow</button>
+        <div class="modal-actions" style="margin-top: 0;">
+          <button class="btn secondary-btn" onclick="document.getElementById('vocab-detail-modal').classList.remove('active')">Close</button>
+          <button id="btn-vd-edit" class="btn secondary-btn">Edit</button>
+          <button id="btn-vd-delete" class="btn secondary-btn" style="color: var(--danger);">Delete</button>
+        </div>
       </div>
     </div>
   </div>

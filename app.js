@@ -46,6 +46,7 @@ const btnReplay = document.getElementById('btn-replay');
 const btnSpeak = document.getElementById('btn-speak');
 const btnPause = document.getElementById('btn-pause');
 const btnToggleMarkup = document.getElementById('btn-toggle-markup');
+const btnAddVocab = document.getElementById('btn-add-vocab');
 
 // State
 let sentences = [];
@@ -58,22 +59,43 @@ let isContinuous = false;
 let currentTextId = null; 
 let vocabShadowingMode = null; 
 let currentDetailVocabId = null;
+let isVocabSelectionMode = false;
+
+// --- Custom UI Components ---
+function showToast(msg, type = "success") {
+  const toast = document.getElementById('custom-toast');
+  toast.innerText = msg;
+  toast.className = `toast ${type}`;
+  setTimeout(() => { toast.className = 'toast hidden'; }, 3000);
+}
+
+let confirmCallback = null;
+function showConfirm(msg, callback) {
+  document.getElementById('confirm-msg').innerText = msg;
+  document.getElementById('confirm-modal').classList.add('active');
+  confirmCallback = callback;
+}
+document.getElementById('btn-confirm-yes').onclick = () => {
+  document.getElementById('confirm-modal').classList.remove('active');
+  if (confirmCallback) confirmCallback();
+};
+document.getElementById('btn-confirm-no').onclick = () => {
+  document.getElementById('confirm-modal').classList.remove('active');
+  confirmCallback = null;
+};
 
 // --- Data Storage & Firebase Sync ---
 let library = JSON.parse(localStorage.getItem('shadow_library')) || [];
 let vocabDB = JSON.parse(localStorage.getItem('shadow_vocab')) || [];
+let isFirebaseLoaded = false;
 
 async function syncData() {
   localStorage.setItem('shadow_library', JSON.stringify(library));
   localStorage.setItem('shadow_vocab', JSON.stringify(vocabDB));
+  if (!isFirebaseLoaded) return; // 防止空資料覆蓋雲端
   try {
-    await setDoc(doc(db, "personal_data", "my_data"), {
-      library: library,
-      vocabDB: vocabDB
-    });
-  } catch (e) {
-    console.warn("Firebase sync failed", e);
-  }
+    await setDoc(doc(db, "personal_data", "my_data"), { library, vocabDB });
+  } catch (e) { console.warn("Firebase sync failed", e); }
 }
 
 async function loadFirebaseData() {
@@ -81,8 +103,8 @@ async function loadFirebaseData() {
     const docSnap = await getDoc(doc(db, "personal_data", "my_data"));
     if (docSnap.exists()) {
       const data = docSnap.data();
-      if (data.library) library = data.library;
-      if (data.vocabDB) vocabDB = data.vocabDB;
+      if (data.library && data.library.length > 0) library = data.library;
+      if (data.vocabDB && data.vocabDB.length > 0) vocabDB = data.vocabDB;
       localStorage.setItem('shadow_library', JSON.stringify(library));
       localStorage.setItem('shadow_vocab', JSON.stringify(vocabDB));
       renderLibrary();
@@ -90,6 +112,8 @@ async function loadFirebaseData() {
     }
   } catch (e) {
     console.warn("Firebase load failed", e);
+  } finally {
+    isFirebaseLoaded = true;
   }
 }
 
@@ -150,15 +174,17 @@ function loadKPIs() {
 }
 
 window.resetKPI = (type) => {
-  if (!confirm(`Reset ${type} to 0?`)) return;
-  if (type === 'streak') localStorage.setItem('streak', '0');
-  else if (currentTextId) {
-    const textData = library.find(t => t.id === currentTextId);
-    if (textData) { textData.stats[type] = 0; syncData(); }
-  } else {
-    localStorage.setItem(type === 'sentences' ? 'totalSentences' : 'totalAttempts', '0');
-  }
-  loadKPIs();
+  showConfirm(`Reset ${type} to 0?`, () => {
+    if (type === 'streak') localStorage.setItem('streak', '0');
+    else if (currentTextId) {
+      const textData = library.find(t => t.id === currentTextId);
+      if (textData) { textData.stats[type] = 0; syncData(); }
+    } else {
+      localStorage.setItem(type === 'sentences' ? 'totalSentences' : 'totalAttempts', '0');
+    }
+    loadKPIs();
+    showToast("Reset successful", "success");
+  });
 };
 
 function updateKPI(type) {
@@ -232,7 +258,6 @@ window.loadTextToPractice = (id) => {
   }
 };
 
-// Library Edit & Delete
 let editingLibId = null;
 window.openEditLibModal = (id, event) => {
   event.stopPropagation();
@@ -254,16 +279,18 @@ document.getElementById('btn-save-lib-edit').onclick = () => {
     syncData();
     renderLibrary();
     document.getElementById('edit-lib-modal').classList.remove('active');
+    showToast("Text updated", "success");
   }
 };
 
 window.deleteLibraryText = (id, event) => {
   event.stopPropagation();
-  if(confirm("Delete this text?")) {
+  showConfirm("Delete this text?", () => {
     library = library.filter(i => i.id !== id);
     syncData();
     renderLibrary();
-  }
+    showToast("Text deleted", "success");
+  });
 };
 
 document.getElementById('sort-select').addEventListener('change', renderLibrary);
@@ -305,12 +332,13 @@ window.openVocabDetail = (id) => {
     jumpToShadowing(v.id);
   };
   document.getElementById('btn-vd-delete').onclick = () => {
-    if(confirm("Delete word?")) { 
+    showConfirm("Delete word?", () => {
       vocabDB = vocabDB.filter(x => x.id !== id); 
       syncData(); 
       document.getElementById('vocab-detail-modal').classList.remove('active');
       renderVocab(); 
-    }
+      showToast("Word deleted", "success");
+    });
   };
   document.getElementById('vocab-detail-modal').classList.add('active');
 };
@@ -323,18 +351,51 @@ window.playVoice = (text) => {
   window.speechSynthesis.speak(u);
 };
 
-// Add Vocab
-document.getElementById('btn-add-vocab').onclick = () => {
-  document.getElementById('v-word').value = '';
-  document.getElementById('v-trans').value = '';
-  document.getElementById('v-example').value = sentences[currentIndex] || '';
-  document.getElementById('vocab-modal').classList.add('active');
-};
+// --- Vocab Selection Mode ---
+btnAddVocab.addEventListener('click', () => {
+  isVocabSelectionMode = !isVocabSelectionMode;
+  if (isVocabSelectionMode) {
+    btnAddVocab.innerHTML = "❌ Cancel Select";
+    btnAddVocab.style.color = "var(--danger)";
+    currentSentenceEl.classList.add('selection-mode');
+    showToast("Select text or click a word", "info");
+  } else {
+    btnAddVocab.innerHTML = "➕ Vocab";
+    btnAddVocab.style.color = "var(--text-muted)";
+    currentSentenceEl.classList.remove('selection-mode');
+  }
+});
+
+currentSentenceEl.addEventListener('mouseup', (e) => {
+  if (!isVocabSelectionMode) return;
+  
+  setTimeout(() => {
+    let selectedText = window.getSelection().toString().trim();
+    if (!selectedText) {
+      const wordSpan = e.target.closest('.word');
+      if (wordSpan) selectedText = wordSpan.innerText.replace(/[^\w\s-]/g, '');
+    }
+
+    if (selectedText) {
+      document.getElementById('v-word').value = selectedText;
+      document.getElementById('v-trans').value = '';
+      document.getElementById('v-example').value = sentences[currentIndex] || '';
+      document.getElementById('vocab-modal').classList.add('active');
+      
+      // Reset Mode
+      isVocabSelectionMode = false;
+      btnAddVocab.innerHTML = "➕ Vocab";
+      btnAddVocab.style.color = "var(--text-muted)";
+      currentSentenceEl.classList.remove('selection-mode');
+      window.getSelection().removeAllRanges();
+    }
+  }, 50);
+});
 
 document.getElementById('btn-save-vocab').onclick = () => {
   const word = document.getElementById('v-word').value.trim();
   const trans = document.getElementById('v-trans').value.trim();
-  if (!word || !trans) return alert("Word and Translation required!");
+  if (!word || !trans) { showToast("Word and Translation required!", "error"); return; }
   
   vocabDB.push({
     id: 'v_' + Date.now(), word: word, translation: trans, pos: document.getElementById('v-pos').value,
@@ -343,7 +404,8 @@ document.getElementById('btn-save-vocab').onclick = () => {
   });
   syncData();
   document.getElementById('vocab-modal').classList.remove('active');
-  renderVocab(); alert("Added to Vocab!");
+  renderVocab(); 
+  showToast("Added to Vocab!", "success");
 };
 
 // Edit Vocab
@@ -371,6 +433,7 @@ document.getElementById('btn-save-ev').onclick = () => {
     renderVocab();
     document.getElementById('edit-vocab-modal').classList.remove('active');
     openVocabDetail(v.id);
+    showToast("Vocabulary updated", "success");
   }
 };
 
@@ -380,7 +443,7 @@ let currentReviewWord = null;
 let reviewTotal = 0;
 
 document.getElementById('btn-start-review').onclick = () => {
-  if (vocabDB.length === 0) return alert("Your vocabulary is empty!");
+  if (vocabDB.length === 0) { showToast("Your vocabulary is empty!", "error"); return; }
   
   let sortedDB = [...vocabDB].sort((a, b) => a.nextReview - b.nextReview);
   reviewQueue = sortedDB.slice(0, 15);
@@ -391,7 +454,7 @@ document.getElementById('btn-start-review').onclick = () => {
 };
 
 function showNextReviewCard() {
-  if (reviewQueue.length === 0) { alert("Review Complete!"); switchScreen('vocab'); renderVocab(); return; }
+  if (reviewQueue.length === 0) { showToast("Review Complete!", "success"); switchScreen('vocab'); renderVocab(); return; }
   currentReviewWord = reviewQueue[0];
   
   document.getElementById('fc-word').innerText = currentReviewWord.word;
@@ -437,10 +500,10 @@ document.getElementById('btn-exit-review').onclick = () => { switchScreen('vocab
 // --- Jump to Shadowing ---
 window.jumpToShadowing = (vocabId) => {
   const v = vocabDB.find(x => x.id === vocabId);
-  if (!v || !v.sourceTextId) return alert("Source text not found!");
+  if (!v || !v.sourceTextId) { showToast("Source text not found!", "error"); return; }
   
   const textItem = library.find(t => t.id === v.sourceTextId);
-  if (!textItem) return alert("Source text deleted!");
+  if (!textItem) { showToast("Source text deleted!", "error"); return; }
 
   currentTextId = textItem.id;
   textInput.value = textItem.text;
@@ -528,8 +591,20 @@ function playCurrentSentence() {
   utterance.onend = () => {
     updateKPI('totalSentences');
     addDoc(collection(db, "sessions"), { sentence: text, mode: mode, timestamp: Date.now(), sessionId: sessionId }).catch(()=>{});
-    setMetronomeState('paused');
-    timerId = setTimeout(startRecording, LEVEL_CONFIG[mode].pauseMs);
+    
+    // 一口氣全文訓練邏輯
+    if (isContinuous) {
+      if (currentIndex < sentences.length - 1) {
+        currentIndex++;
+        playCurrentSentence();
+      } else {
+        setMetronomeState('paused');
+        showToast("Training Complete!", "success");
+      }
+    } else {
+      setMetronomeState('paused');
+      timerId = setTimeout(startRecording, LEVEL_CONFIG[mode].pauseMs);
+    }
   };
   window.speechSynthesis.speak(utterance);
 }
@@ -547,7 +622,7 @@ function startRecording() {
 }
 
 function autoAdvanceCheck() {
-  if (LEVEL_CONFIG[mode].autoNext || isContinuous) {
+  if (LEVEL_CONFIG[mode].autoNext && !isContinuous) {
     timerId = setTimeout(() => { if (currentIndex < sentences.length - 1) { currentIndex++; playCurrentSentence(); } }, 1500);
   }
 }
@@ -571,7 +646,7 @@ tabs.vocab.onclick = () => switchTab('vocab');
 
 btnStart.addEventListener('click', () => {
   const rawText = textInput.value.trim();
-  if (!rawText) return alert("Please paste some text first!");
+  if (!rawText) { showToast("Please paste some text first!", "error"); return; }
   
   currentTextId = saveToLibrary(rawText) || currentTextId;
   sentences = rawText.match(/[^.?!]+[.?!]+/g) || rawText.split('\n');
@@ -606,6 +681,8 @@ btnReplay.addEventListener('click', playCurrentSentence);
 btnSpeak.addEventListener('click', () => { window.speechSynthesis.cancel(); clearTimeout(timerId); startRecording(); });
 
 currentSentenceEl.addEventListener('click', (e) => {
+  if (isVocabSelectionMode) return; // 讓 mouseup 處理選取
+  
   const wordSpan = e.target.closest('.word');
   if (!wordSpan) return;
   const startIndex = parseInt(wordSpan.getAttribute('data-index'));
