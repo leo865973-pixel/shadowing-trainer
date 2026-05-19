@@ -13,7 +13,7 @@
   <!-- 自訂 Toast 提示訊息 -->
   <div id="custom-toast" class="toast hidden">Message</div>
 
-  <!-- 自訂 Confirm 確認視窗 -->
+  <!-- 自訂 Confirm 確認視窗 (Z-index 已調高) -->
   <div id="confirm-modal" class="modal-overlay">
     <div class="modal-content glass" style="text-align: center;">
       <h3 id="confirm-msg" style="margin-bottom: 25px; font-size: 18px;">Are you sure?</h3>
@@ -42,16 +42,16 @@
         <div class="kpi-label">Day Streak</div>
       </div>
       <div class="kpi-card glass">
-        <div class="kpi-value"><span id="kpi-sentences">0</span></div>
-        <div class="kpi-label" id="label-sentences">Total Sentences</div>
-      </div>
-      <div class="kpi-card glass">
         <div class="kpi-value"><span id="kpi-attempts">0</span> <button class="reset-btn" onclick="resetKPI('attempts')">↺</button></div>
         <div class="kpi-label" id="label-attempts">Total Attempts</div>
       </div>
     </div>
 
     <div class="setup-container glass">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+        <label style="font-weight: 600; color: var(--text-muted); font-size: 14px;">Text Input</label>
+        <button id="btn-clear-text" class="btn icon-text-btn" style="padding: 4px 8px; font-size: 12px; color: var(--danger);">🗑️ Clear</button>
+      </div>
       <textarea id="text-input" placeholder="Paste your English text here to start training..."></textarea>
       
       <div class="setup-controls-wrapper">
@@ -163,7 +163,8 @@
     </div>
 
     <div class="shortcut-hints">
-      <span><b>A</b> 上一句</span> <span><b>Space</b> 暫停/繼續</span> <span><b>S</b> 重播</span> <span><b>D</b> 下一句</span>
+      <span><b>Esc</b> 退出/返回</span> <span><b>Q</b> 解析</span> <span><b>E</b> 加單字</span><br>
+      <span style="margin-top: 8px;"><b>A</b> 上一句</span> <span><b>Space</b> 暫停/繼續</span> <span><b>S</b> 重播</span> <span><b>D</b> 下一句</span>
     </div>
 
     <div class="controls glass">
@@ -236,7 +237,6 @@
         <span id="vd-status"></span>
       </div>
       
-      <!-- 獨立一排的 Shadow 按鈕 -->
       <div class="modal-actions-column">
         <button id="btn-vd-shadow" class="btn primary-btn" style="background: var(--accent); width: 100%; margin-bottom: 12px;">🎯 Shadow</button>
         <div class="modal-actions" style="margin-top: 0;">

@@ -92,7 +92,7 @@ let isFirebaseLoaded = false;
 async function syncData() {
   localStorage.setItem('shadow_library', JSON.stringify(library));
   localStorage.setItem('shadow_vocab', JSON.stringify(vocabDB));
-  if (!isFirebaseLoaded) return; // 防止空資料覆蓋雲端
+  if (!isFirebaseLoaded) return; 
   try {
     await setDoc(doc(db, "personal_data", "my_data"), { library, vocabDB });
   } catch (e) { console.warn("Firebase sync failed", e); }
@@ -158,17 +158,10 @@ function loadKPIs() {
 
   if (currentTextId) {
     const textData = library.find(t => t.id === currentTextId);
-    document.getElementById('label-sentences').innerText = "Text Sentences";
     document.getElementById('label-attempts').innerText = "Text Attempts";
-    
-    let textSentences = textData.text.match(/[^.?!]+[.?!]+/g) || textData.text.split('\n');
-    textSentences = textSentences.map(s => s.trim()).filter(s => s.length > 0);
-    document.getElementById('kpi-sentences').innerText = textSentences.length;
     document.getElementById('kpi-attempts').innerText = textData?.stats?.attempts || 0;
   } else {
-    document.getElementById('label-sentences').innerText = "Total Sentences";
     document.getElementById('label-attempts').innerText = "Total Attempts";
-    document.getElementById('kpi-sentences').innerText = localStorage.getItem('totalSentences') || '0';
     document.getElementById('kpi-attempts').innerText = localStorage.getItem('totalAttempts') || '0';
   }
 }
@@ -180,7 +173,7 @@ window.resetKPI = (type) => {
       const textData = library.find(t => t.id === currentTextId);
       if (textData) { textData.stats[type] = 0; syncData(); }
     } else {
-      localStorage.setItem(type === 'sentences' ? 'totalSentences' : 'totalAttempts', '0');
+      localStorage.setItem('totalAttempts', '0');
     }
     loadKPIs();
     showToast("Reset successful", "success");
@@ -192,8 +185,8 @@ function updateKPI(type) {
   if (currentTextId) {
     const textData = library.find(t => t.id === currentTextId);
     if (textData) {
-      if (!textData.stats) textData.stats = { sentences: 0, attempts: 0 };
-      textData.stats[type === 'totalSentences' ? 'sentences' : 'attempts']++;
+      if (!textData.stats) textData.stats = { attempts: 0 };
+      textData.stats['attempts']++;
       syncData();
     }
   }
@@ -206,7 +199,7 @@ function saveToLibrary(text) {
   if (!cleanText) return null;
   let item = library.find(i => i.text === cleanText);
   if (!item) {
-    item = { id: 'txt_' + Date.now(), text: cleanText, status: 'learning', createdAt: Date.now(), updatedAt: Date.now(), stats: { sentences: 0, attempts: 0 } };
+    item = { id: 'txt_' + Date.now(), text: cleanText, status: 'learning', createdAt: Date.now(), updatedAt: Date.now(), stats: { attempts: 0 } };
     library.push(item);
     syncData();
   }
@@ -306,7 +299,7 @@ function renderVocab() {
 
   const q = document.getElementById('vocab-search').value.toLowerCase();
   document.getElementById('vocab-list').innerHTML = vocabDB.filter(v => v.word.toLowerCase().includes(q)).map(v => `
-    <div class="vocab-card glass" onclick="openVocabDetail('${v.id}')">
+    <div class="vocab-card glass lvl-${v.level}" onclick="openVocabDetail('${v.id}')">
       <span class="vc-word">${v.word}</span>
       <span class="badge ${v.pos || 'noun'}">${v.pos || 'noun'}</span>
       <span class="vc-trans">${v.translation}</span>
@@ -379,7 +372,7 @@ currentSentenceEl.addEventListener('mouseup', (e) => {
     if (selectedText) {
       document.getElementById('v-word').value = selectedText;
       document.getElementById('v-trans').value = '';
-      document.getElementById('v-example').value = sentences[currentIndex] || '';
+      document.getElementById('v-example').value = ''; // 預設清空
       document.getElementById('vocab-modal').classList.add('active');
       
       // Reset Mode
@@ -589,10 +582,9 @@ function playCurrentSentence() {
   if (v) utterance.voice = v;
 
   utterance.onend = () => {
-    updateKPI('totalSentences');
+    updateKPI('totalAttempts');
     addDoc(collection(db, "sessions"), { sentence: text, mode: mode, timestamp: Date.now(), sessionId: sessionId }).catch(()=>{});
     
-    // 一口氣全文訓練邏輯
     if (isContinuous) {
       if (currentIndex < sentences.length - 1) {
         currentIndex++;
@@ -644,6 +636,13 @@ tabs.practice.onclick = () => switchTab('practice');
 tabs.library.onclick = () => switchTab('library');
 tabs.vocab.onclick = () => switchTab('vocab');
 
+document.getElementById('btn-clear-text').addEventListener('click', () => {
+  textInput.value = '';
+  currentTextId = null;
+  loadKPIs();
+  showToast("Text cleared", "info");
+});
+
 btnStart.addEventListener('click', () => {
   const rawText = textInput.value.trim();
   if (!rawText) { showToast("Please paste some text first!", "error"); return; }
@@ -681,7 +680,7 @@ btnReplay.addEventListener('click', playCurrentSentence);
 btnSpeak.addEventListener('click', () => { window.speechSynthesis.cancel(); clearTimeout(timerId); startRecording(); });
 
 currentSentenceEl.addEventListener('click', (e) => {
-  if (isVocabSelectionMode) return; // 讓 mouseup 處理選取
+  if (isVocabSelectionMode) return; 
   
   const wordSpan = e.target.closest('.word');
   if (!wordSpan) return;
@@ -711,10 +710,26 @@ btnPause.addEventListener('click', togglePauseResume);
 document.addEventListener('keydown', (e) => {
   if (!screens.training.classList.contains('active')) return;
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-  if (e.code === 'Space') { e.preventDefault(); togglePauseResume(); }
-  else if (e.code === 'KeyA') btnBack.click();
-  else if (e.code === 'KeyS') btnReplay.click();
-  else if (e.code === 'KeyD') btnNext.click();
+  
+  if (e.code === 'Space') { 
+    e.preventDefault(); togglePauseResume(); 
+  } else if (e.code === 'KeyA') {
+    btnBack.click();
+  } else if (e.code === 'KeyS') {
+    btnReplay.click();
+  } else if (e.code === 'KeyD') {
+    btnNext.click();
+  } else if (e.code === 'Escape') {
+    if (!document.getElementById('btn-return-vocab').classList.contains('hidden')) {
+      document.getElementById('btn-return-vocab').click();
+    } else {
+      btnExit.click();
+    }
+  } else if (e.code === 'KeyQ') {
+    btnToggleMarkup.click();
+  } else if (e.code === 'KeyE') {
+    btnAddVocab.click();
+  }
 });
 
 // Init

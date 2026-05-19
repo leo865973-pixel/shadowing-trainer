@@ -19,6 +19,9 @@ body { background-color: var(--bg-color); color: var(--text-main); overscroll-be
 .toast.info { border-left: 4px solid var(--accent); }
 .toast.error { border-left: 4px solid var(--danger); }
 
+/* Confirm Modal Z-index Fix */
+#confirm-modal { z-index: 3000; }
+
 /* Glassmorphism */
 .glass { background: var(--surface); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); border: 1px solid var(--border); }
 
@@ -72,6 +75,17 @@ select, .modal-input { width: 100%; padding: 14px; border-radius: var(--radius-m
 .icon-text-btn { background: transparent; color: var(--text-muted); font-size: 14px; padding: 8px 12px; }
 .icon-text-btn:hover { background: var(--border); color: var(--text-main); }
 
+/* Prominent Search Boxes */
+#search-input, #vocab-search {
+  background: #ffffff;
+  border: 2px solid var(--accent);
+  box-shadow: 0 4px 12px rgba(0, 113, 227, 0.1);
+  font-weight: 500;
+}
+#search-input:focus, #vocab-search:focus {
+  box-shadow: 0 4px 16px rgba(0, 113, 227, 0.2);
+}
+
 /* Library & Vocab Lists */
 .library-header { padding: 15px; border-radius: var(--radius-lg); margin-bottom: 15px; box-shadow: var(--shadow-sm); }
 .filter-group { display: flex; gap: 10px; margin-top: 10px; }
@@ -82,10 +96,16 @@ select, .modal-input { width: 100%; padding: 14px; border-radius: var(--radius-m
 .lib-text { font-size: 16px; line-height: 1.4; color: var(--text-main); margin-bottom: 10px; font-weight: 500; }
 .lib-meta { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--text-muted); }
 
-/* Vocab Grid */
+/* Vocab Grid & Level Colors */
 .vocab-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; padding-bottom: 40px; }
 .vocab-card { padding: 16px; border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); cursor: pointer; transition: 0.2s; display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
 .vocab-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); }
+.vocab-card.lvl-0 { border-left: 4px solid var(--danger); }
+.vocab-card.lvl-1 { border-left: 4px solid var(--warning); }
+.vocab-card.lvl-2 { border-left: 4px solid #ffcc00; }
+.vocab-card.lvl-3 { border-left: 4px solid #34c759; }
+.vocab-card.lvl-4 { border-left: 4px solid #30b0c7; }
+.vocab-card.lvl-5 { border-left: 4px solid var(--accent); }
 .vc-word { font-size: 18px; font-weight: 700; color: var(--text-main); }
 .vc-trans { font-size: 13px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; }
 
@@ -147,7 +167,8 @@ select, .modal-input { width: 100%; padding: 14px; border-radius: var(--radius-m
 ::selection { background: rgba(0, 113, 227, 0.3); }
 
 /* Controls & Shortcuts */
-.shortcut-hints { display: flex; justify-content: center; gap: 15px; font-size: 12px; color: var(--text-muted); margin-bottom: 15px; }
+.shortcut-hints { display: flex; flex-direction: column; align-items: center; gap: 8px; font-size: 12px; color: var(--text-muted); margin-bottom: 15px; }
+.shortcut-hints div { display: flex; gap: 15px; }
 .shortcut-hints b { background: var(--border); padding: 3px 8px; border-radius: 6px; color: var(--text-main); font-family: monospace; }
 .controls { display: flex; width: 100%; gap: 12px; padding: 12px 20px; border-radius: 980px; justify-content: space-between; box-shadow: var(--shadow-md); margin-bottom: 20px; }
 .icon-btn { flex: 1; background: transparent; color: var(--text-main); font-size: 22px; padding: 12px 0; display: flex; align-items: center; justify-content: center; border-radius: 16px; transition: 0.2s; }
