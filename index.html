@@ -2,11 +2,11 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Shadowing Trainer Pro</title>
   <link rel="manifest" href="manifest.json">
   <link rel="stylesheet" href="style.css">
-  <meta name="theme-color" content="#f5f5f7">
+  <meta name="theme-color" content="#f2f2f7">
 </head>
 <body>
 
@@ -24,13 +24,13 @@
     </div>
   </div>
 
-  <!-- 頂部導覽列 -->
-  <nav class="top-nav glass">
+  <!-- 導覽列 (電腦版在頂部，手機版在底部) -->
+  <nav class="main-nav glass">
     <div class="nav-brand">ShadowPro</div>
     <div class="nav-tabs">
-      <button id="tab-practice" class="nav-btn active">Practice</button>
-      <button id="tab-library" class="nav-btn">Library</button>
-      <button id="tab-vocab" class="nav-btn">Vocab</button>
+      <button id="tab-practice" class="nav-btn active">Practice <span class="nav-hint">1</span></button>
+      <button id="tab-library" class="nav-btn">Library <span class="nav-hint">2</span></button>
+      <button id="tab-vocab" class="nav-btn">Vocab <span class="nav-hint">3</span></button>
     </div>
   </nav>
 
@@ -42,30 +42,26 @@
         <div class="kpi-label">Day Streak</div>
       </div>
       <div class="kpi-card glass">
-        <div class="kpi-value"><span id="kpi-sentences">0</span></div>
-        <div class="kpi-label" id="label-sentences">Total Sentences</div>
-      </div>
-      <div class="kpi-card glass">
         <div class="kpi-value"><span id="kpi-attempts">0</span> <button class="reset-btn" onclick="resetKPI('attempts')">↺</button></div>
         <div class="kpi-label" id="label-attempts">Total Attempts</div>
       </div>
     </div>
 
     <div class="setup-container glass">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
         <label style="font-weight: 600; color: var(--text-muted); font-size: 14px;">Text Input</label>
-        <button id="btn-clear-text" class="btn icon-text-btn" style="padding: 4px 8px; font-size: 12px; color: var(--danger);">🗑️ Clear</button>
+        <button id="btn-clear-text" class="btn icon-text-btn" style="padding: 4px 8px; font-size: 13px; color: var(--danger);">🗑️ Clear</button>
       </div>
       <textarea id="text-input" placeholder="Paste your English text here to start training..."></textarea>
       
       <div class="setup-controls-wrapper">
         <div class="voice-settings">
           <label for="voice-select">Voice Engine</label>
-          <select id="voice-select"><option>Loading voices...</option></select>
+          <select id="voice-select" class="apple-select"><option>Loading voices...</option></select>
         </div>
         
         <div class="continuous-toggle">
-          <span style="font-size: 14px; font-weight: 600; color: var(--text-main);">Continuous Full-Text (一口氣全文)</span>
+          <span style="font-size: 15px; font-weight: 600; color: var(--text-main);">Continuous Full-Text</span>
           <label class="switch">
             <input type="checkbox" id="chk-continuous">
             <span class="slider round"></span>
@@ -85,19 +81,19 @@
   <!-- 畫面 2：LIBRARY SCREEN -->
   <div id="library-screen" class="screen">
     <div class="library-header glass">
-      <input type="text" id="search-input" placeholder="Search texts...">
+      <input type="text" id="search-input" class="apple-input search-bar" placeholder="Search texts...">
       <div class="filter-group">
-        <select id="sort-select" class="modal-input">
-          <option value="edit-desc">Newest Edited (最新編輯)</option>
-          <option value="edit-asc">Oldest Edited (最舊編輯)</option>
-          <option value="length-desc">Longest Text (文本最長)</option>
-          <option value="length-asc">Shortest Text (文本最短)</option>
+        <select id="sort-select" class="apple-select">
+          <option value="edit-desc">Newest Edited</option>
+          <option value="edit-asc">Oldest Edited</option>
+          <option value="length-desc">Longest Text</option>
+          <option value="length-asc">Shortest Text</option>
         </select>
-        <select id="filter-select" class="modal-input">
-          <option value="all">All Status (全部狀態)</option>
-          <option value="learning">Learning (不記得)</option>
-          <option value="familiar">Familiar (不太熟)</option>
-          <option value="mastered">Mastered (我會了)</option>
+        <select id="filter-select" class="apple-select">
+          <option value="all">All Status</option>
+          <option value="learning">Learning</option>
+          <option value="familiar">Familiar</option>
+          <option value="mastered">Mastered</option>
         </select>
       </div>
     </div>
@@ -114,7 +110,7 @@
       <button id="btn-start-review" class="btn primary-btn">Practice 15 Cards</button>
     </div>
     <div class="library-header glass" style="margin-top: 20px;">
-      <input type="text" id="vocab-search" placeholder="Search vocabulary...">
+      <input type="text" id="vocab-search" class="apple-input search-bar" placeholder="Search vocabulary...">
     </div>
     <div id="vocab-list" class="vocab-grid"></div>
   </div>
@@ -188,9 +184,9 @@
   <div id="vocab-modal" class="modal-overlay">
     <div class="modal-content glass">
       <h3>Add to Vocabulary</h3>
-      <input type="text" id="v-word" placeholder="Word / Phrase" class="modal-input">
-      <input type="text" id="v-trans" placeholder="Chinese Translation" class="modal-input">
-      <select id="v-pos" class="modal-input">
+      <input type="text" id="v-word" placeholder="Word / Phrase" class="apple-input">
+      <input type="text" id="v-trans" placeholder="Chinese Translation" class="apple-input">
+      <select id="v-pos" class="apple-select">
         <option value="noun">Noun (名詞)</option>
         <option value="verb">Verb (動詞)</option>
         <option value="adjective">Adjective (形容詞)</option>
@@ -198,7 +194,7 @@
         <option value="preposition">Preposition (介系詞)</option>
         <option value="phrase">Phrase (片語)</option>
       </select>
-      <textarea id="v-example" placeholder="Example sentence..." class="modal-input" style="height: 80px;"></textarea>
+      <textarea id="v-example" placeholder="Example sentence..." class="apple-input" style="height: 80px;"></textarea>
       <div class="modal-actions">
         <button class="btn secondary-btn" onclick="document.getElementById('vocab-modal').classList.remove('active')">Cancel</button>
         <button id="btn-save-vocab" class="btn primary-btn">Save Word</button>
@@ -210,9 +206,9 @@
   <div id="edit-vocab-modal" class="modal-overlay">
     <div class="modal-content glass">
       <h3>Edit Vocabulary</h3>
-      <input type="text" id="ev-word" class="modal-input">
-      <input type="text" id="ev-trans" class="modal-input">
-      <select id="ev-pos" class="modal-input">
+      <input type="text" id="ev-word" class="apple-input">
+      <input type="text" id="ev-trans" class="apple-input">
+      <select id="ev-pos" class="apple-select">
         <option value="noun">Noun (名詞)</option>
         <option value="verb">Verb (動詞)</option>
         <option value="adjective">Adjective (形容詞)</option>
@@ -220,7 +216,7 @@
         <option value="preposition">Preposition (介系詞)</option>
         <option value="phrase">Phrase (片語)</option>
       </select>
-      <textarea id="ev-example" class="modal-input" style="height: 80px;"></textarea>
+      <textarea id="ev-example" class="apple-input" style="height: 80px;"></textarea>
       <div class="modal-actions">
         <button class="btn secondary-btn" onclick="document.getElementById('edit-vocab-modal').classList.remove('active')">Cancel</button>
         <button id="btn-save-ev" class="btn primary-btn">Save</button>
@@ -260,8 +256,8 @@
   <div id="edit-lib-modal" class="modal-overlay">
     <div class="modal-content glass">
       <h3>Edit Text & Status</h3>
-      <textarea id="edit-lib-textarea" class="modal-input" style="height: 180px;"></textarea>
-      <select id="edit-lib-status" class="modal-input">
+      <textarea id="edit-lib-textarea" class="apple-input" style="height: 180px;"></textarea>
+      <select id="edit-lib-status" class="apple-select">
         <option value="learning">Learning (不記得)</option>
         <option value="familiar">Familiar (不太熟)</option>
         <option value="mastered">Mastered (我會了)</option>

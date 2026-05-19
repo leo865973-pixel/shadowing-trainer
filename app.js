@@ -709,16 +709,27 @@ function togglePauseResume() {
 btnPause.addEventListener('click', togglePauseResume);
 
 document.addEventListener('keydown', (e) => {
-  // 1. Global Escape for Modals
+  // 1. Global Escape for Modals & Selection Mode
   if (e.code === 'Escape') {
     const activeModal = document.querySelector('.modal-overlay.active');
     if (activeModal) {
       activeModal.classList.remove('active');
       return;
     }
+    if (isVocabSelectionMode) {
+      btnAddVocab.click(); // Cancel selection mode
+      return;
+    }
   }
 
-  // 2. Training Screen Shortcuts
+  // 2. Global Tab Shortcuts (Only if not in input/textarea and not in training)
+  if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA' && !screens.training.classList.contains('active')) {
+    if (e.code === 'Digit1' || e.code === 'Numpad1') { e.preventDefault(); tabs.practice.click(); return; }
+    if (e.code === 'Digit2' || e.code === 'Numpad2') { e.preventDefault(); tabs.library.click(); return; }
+    if (e.code === 'Digit3' || e.code === 'Numpad3') { e.preventDefault(); tabs.vocab.click(); return; }
+  }
+
+  // 3. Training Screen Shortcuts
   if (!screens.training.classList.contains('active')) return;
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
   
