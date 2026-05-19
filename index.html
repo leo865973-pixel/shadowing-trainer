@@ -50,10 +50,9 @@
     <div class="setup-container glass">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
         <label style="font-weight: 600; color: var(--text-muted); font-size: 14px;">Text Input</label>
-        <button id="btn-clear-text" class="btn icon-text-btn" style="padding: 4px 8px; font-size: 13px; color: var(--danger);">🗑️ Clear</button>
+        <button id="btn-clear-text" class="btn icon-text-btn" style="padding: 4px 8px; font-size: 13px; color: var(--danger);">🗑️ Clear (R)</button>
       </div>
       
-      <!-- 新增標題輸入框 -->
       <input type="text" id="text-title" class="apple-input" placeholder="Title (Optional)" style="margin-bottom: 12px; font-weight: 600;">
       <textarea id="text-input" placeholder="Paste your English text here to start training..."></textarea>
       
@@ -161,6 +160,8 @@
       <button id="btn-add-vocab" class="btn icon-text-btn">➕ Vocab</button>
     </header>
 
+    <div id="training-title" class="training-title">Untitled</div>
+
     <div class="training-container">
       <div id="pulse-indicator" class="pulse"></div>
       <div id="status-text" class="status-label">GET READY</div>
@@ -199,6 +200,18 @@
       <div class="modal-actions">
         <button id="btn-cancel-folder" class="btn secondary-btn">Cancel</button>
         <button id="btn-confirm-folder" class="btn primary-btn">Confirm & Start</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit Folder Modal -->
+  <div id="edit-folder-modal" class="modal-overlay">
+    <div class="modal-content glass">
+      <h3>Edit Folder</h3>
+      <input type="text" id="edit-folder-name" class="apple-input" placeholder="Folder Name">
+      <div class="modal-actions">
+        <button class="btn secondary-btn" onclick="document.getElementById('edit-folder-modal').classList.remove('active')">Cancel</button>
+        <button id="btn-save-folder-edit" class="btn primary-btn">Save</button>
       </div>
     </div>
   </div>
@@ -278,7 +291,7 @@
   <!-- Edit Library Text Modal -->
   <div id="edit-lib-modal" class="modal-overlay">
     <div class="modal-content glass">
-      <h3>Edit Text</h3>
+      <h3>Edit Text & Status</h3>
       <input type="text" id="edit-lib-title" class="apple-input" placeholder="Title">
       <select id="edit-lib-folder" class="apple-select">
         <option value="none">Uncategorized</option>

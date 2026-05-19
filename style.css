@@ -153,9 +153,10 @@ input:checked + .slider:before { transform: translateX(20px); }
 .srs-btn.pass { background: rgba(52, 199, 89, 0.1); color: var(--success); }
 
 /* Training Screen */
-.training-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-radius: 980px; margin-bottom: 24px; }
+.training-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-radius: 980px; margin-bottom: 15px; }
 .progress-container { flex: 1; background: rgba(118, 118, 128, 0.12); height: 8px; border-radius: 4px; margin: 0 16px; overflow: hidden; }
 .progress-bar { height: 100%; background: var(--accent); width: 0%; transition: width 0.5s var(--spring); }
+.training-title { font-size: 14px; font-weight: 600; color: var(--text-muted); text-align: center; margin-bottom: 20px; text-transform: uppercase; letter-spacing: 1px; }
 .training-container { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
 .pulse { width: 56px; height: 56px; border-radius: 50%; background: var(--border); transition: all 0.4s var(--spring); margin-bottom: 20px; }
 .pulse.listening { background: rgba(0, 122, 255, 0.2); box-shadow: 0 0 0 12px rgba(0, 122, 255, 0.1); animation: breathe 2s infinite; }
@@ -163,7 +164,7 @@ input:checked + .slider:before { transform: translateX(20px); }
 @keyframes breathe { 0% { transform: scale(0.95); } 50% { transform: scale(1.05); } 100% { transform: scale(0.95); } }
 .status-label { font-size: 13px; font-weight: 700; letter-spacing: 1.5px; color: var(--text-muted); margin-bottom: 24px; }
 .sentence-display { font-size: 36px; line-height: 1.4; font-weight: 600; letter-spacing: -0.5px; margin-bottom: 36px; display: block; word-wrap: break-word; transition: 0.3s; }
-.transcript-box { padding: 20px 28px; border-radius: var(--radius-lg); font-size: 18px; color: var(--text-muted); font-style: italic; min-width: 280px; }
+.transcript-box { padding: 20px 28px; border-radius: var(--radius-lg); font-size: 18px; color: var(--text-muted); font-style: italic; min-width: 280px; margin-bottom: 40px; }
 
 /* Text Markup & Target Highlight & Selection Mode */
 .word { cursor: pointer; transition: color 0.2s; border-radius: 8px; padding: 0 4px; }

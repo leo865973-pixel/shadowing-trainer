@@ -58,10 +58,11 @@ let isPaused = false;
 let showMarkup = false;
 let isContinuous = false;
 let currentTextId = null; 
+let currentTextTitle = 'Untitled';
 let vocabShadowingMode = null; 
 let currentDetailVocabId = null;
 let isVocabSelectionMode = false;
-let currentFolderView = null; // null = root, 'none' = uncategorized, 'id' = specific folder
+let currentFolderView = null; 
 
 // --- Custom UI Components ---
 function showToast(msg, type = "success") {
@@ -240,7 +241,6 @@ function renderLibrary() {
     btnBack.classList.add('hidden');
     filterSelect.classList.add('hidden');
     
-    // Hide length sort options
     Array.from(sortSelect.options).forEach(opt => {
       if(opt.value.includes('length')) opt.style.display = 'none';
     });
@@ -255,7 +255,6 @@ function renderLibrary() {
 
     let html = '';
     
-    // Always show Uncategorized if there are uncategorized texts
     let uncategorizedCount = library.filter(t => !t.folderId).length;
     if (uncategorizedCount > 0 && "uncategorized".includes(q)) {
       html += `
@@ -278,7 +277,10 @@ function renderLibrary() {
             <div class="folder-name">${f.name}</div>
             <div class="folder-count">${count} texts</div>
           </div>
-          <button class="btn icon-btn" style="color:var(--danger); width:40px; height:40px; padding:0;" onclick="deleteFolder('${f.id}', event)">🗑️</button>
+          <div class="lib-actions" style="display:flex; gap:10px;">
+            <button class="btn icon-text-btn" onclick="openEditFolderModal('${f.id}', event)">Edit</button>
+            <button class="btn icon-text-btn" style="color:var(--danger);" onclick="deleteFolder('${f.id}', event)">Del</button>
+          </div>
         </div>
       `;
     }).join('');
@@ -340,6 +342,30 @@ document.getElementById('btn-lib-back').onclick = () => {
   renderLibrary();
 };
 
+// Folder Edit & Delete
+let editingFolderId = null;
+window.openEditFolderModal = (id, event) => {
+  event.stopPropagation();
+  const f = folders.find(x => x.id === id);
+  if(f) {
+    editingFolderId = id;
+    document.getElementById('edit-folder-name').value = f.name;
+    document.getElementById('edit-folder-modal').classList.add('active');
+  }
+};
+
+document.getElementById('btn-save-folder-edit').onclick = () => {
+  const f = folders.find(x => x.id === editingFolderId);
+  if(f) {
+    f.name = document.getElementById('edit-folder-name').value.trim() || 'Unnamed Folder';
+    f.updatedAt = Date.now();
+    syncData();
+    renderLibrary();
+    document.getElementById('edit-folder-modal').classList.remove('active');
+    showToast("Folder updated", "success");
+  }
+};
+
 window.deleteFolder = (id, event) => {
   event.stopPropagation();
   showConfirm("Delete folder? Texts inside will become Uncategorized.", () => {
@@ -355,6 +381,7 @@ window.loadTextToPractice = (id) => {
   const item = library.find(i => i.id === id);
   if (item) {
     currentTextId = id; 
+    currentTextTitle = item.title || 'Untitled';
     textTitle.value = item.title || '';
     textInput.value = item.text;
     loadKPIs(); switchTab('practice');
@@ -625,6 +652,7 @@ window.jumpToShadowing = (vocabId) => {
   if (!textItem) { showToast("Source text deleted!", "error"); return; }
 
   currentTextId = textItem.id;
+  currentTextTitle = textItem.title || 'Untitled';
   textTitle.value = textItem.title || '';
   textInput.value = textItem.text;
   sentences = textItem.text.match(/[^.?!]+[.?!]+/g) || textItem.text.split('\n');
@@ -639,6 +667,7 @@ window.jumpToShadowing = (vocabId) => {
   document.getElementById('btn-return-vocab').classList.remove('hidden');
   document.getElementById('btn-exit').classList.add('hidden');
   
+  document.getElementById('training-title').innerText = currentTextTitle;
   playCurrentSentence();
 };
 
@@ -755,7 +784,12 @@ function switchTab(tabId) {
   Object.values(tabs).forEach(t => t.classList.remove('active'));
   tabs[tabId].classList.add('active');
   if (tabId === 'practice') { switchScreen('setup'); loadKPIs(); }
-  if (tabId === 'library') { switchScreen('library'); renderLibrary(); }
+  if (tabId === 'library') { 
+    currentFolderView = null;
+    document.getElementById('search-input').value = '';
+    switchScreen('library'); 
+    renderLibrary(); 
+  }
   if (tabId === 'vocab') { switchScreen('vocab'); renderVocab(); }
 }
 
@@ -780,7 +814,6 @@ btnStart.addEventListener('click', () => {
   if (!rawText) { showToast("Please paste some text first!", "error"); return; }
   
   if (!currentTextId) {
-    // New text -> Ask for folder
     pendingStartData = { title, text: rawText };
     let fSelect = document.getElementById('folder-select');
     fSelect.innerHTML = '<option value="none">Uncategorized (無分類)</option><option value="new">➕ Create New Folder...</option>' + 
@@ -789,7 +822,6 @@ btnStart.addEventListener('click', () => {
     document.getElementById('new-folder-name').value = '';
     document.getElementById('folder-modal').classList.add('active');
   } else {
-    // Existing text -> Update and start
     let item = library.find(i => i.id === currentTextId);
     if (item) {
       item.title = title || 'Untitled';
@@ -797,6 +829,7 @@ btnStart.addEventListener('click', () => {
       item.updatedAt = Date.now();
       syncData();
     }
+    currentTextTitle = title || 'Untitled';
     proceedToTraining(rawText);
   }
 });
@@ -824,6 +857,7 @@ document.getElementById('btn-confirm-folder').onclick = () => {
   }
   
   currentTextId = saveToLibrary(pendingStartData.title, pendingStartData.text, folderId);
+  currentTextTitle = pendingStartData.title || 'Untitled';
   document.getElementById('folder-modal').classList.remove('active');
   proceedToTraining(pendingStartData.text);
   pendingStartData = null;
@@ -841,6 +875,7 @@ function proceedToTraining(rawText) {
   document.getElementById('btn-exit').classList.remove('hidden');
 
   switchScreen('training');
+  document.getElementById('training-title').innerText = currentTextTitle;
   window.speechSynthesis.speak(new SpeechSynthesisUtterance(''));
   playCurrentSentence();
 }
@@ -906,6 +941,7 @@ document.addEventListener('keydown', (e) => {
     if (e.code === 'Digit1' || e.code === 'Numpad1') { e.preventDefault(); tabs.practice.click(); return; }
     if (e.code === 'Digit2' || e.code === 'Numpad2') { e.preventDefault(); tabs.library.click(); return; }
     if (e.code === 'Digit3' || e.code === 'Numpad3') { e.preventDefault(); tabs.vocab.click(); return; }
+    if (screens.setup.classList.contains('active') && e.code === 'KeyR') { e.preventDefault(); document.getElementById('btn-clear-text').click(); return; }
   }
 
   if (!screens.training.classList.contains('active')) return;
