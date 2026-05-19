@@ -24,7 +24,7 @@
     </div>
   </div>
 
-  <!-- 導覽列 (電腦版在頂部，手機版在底部) -->
+  <!-- 導覽列 -->
   <nav class="main-nav glass">
     <div class="nav-brand">ShadowPro</div>
     <div class="nav-tabs">
@@ -52,6 +52,9 @@
         <label style="font-weight: 600; color: var(--text-muted); font-size: 14px;">Text Input</label>
         <button id="btn-clear-text" class="btn icon-text-btn" style="padding: 4px 8px; font-size: 13px; color: var(--danger);">🗑️ Clear</button>
       </div>
+      
+      <!-- 新增標題輸入框 -->
+      <input type="text" id="text-title" class="apple-input" placeholder="Title (Optional)" style="margin-bottom: 12px; font-weight: 600;">
       <textarea id="text-input" placeholder="Paste your English text here to start training..."></textarea>
       
       <div class="setup-controls-wrapper">
@@ -81,15 +84,18 @@
   <!-- 畫面 2：LIBRARY SCREEN -->
   <div id="library-screen" class="screen">
     <div class="library-header glass">
-      <input type="text" id="search-input" class="apple-input search-bar" placeholder="Search texts...">
+      <div style="display: flex; gap: 10px; align-items: center;">
+        <button id="btn-lib-back" class="btn icon-btn hidden" style="flex: none; width: 44px; height: 44px; padding: 0; background: var(--border);">🔙</button>
+        <input type="text" id="search-input" class="apple-input search-bar" placeholder="Search..." style="margin-bottom: 0;">
+      </div>
       <div class="filter-group">
         <select id="sort-select" class="apple-select">
           <option value="edit-desc">Newest Edited</option>
           <option value="edit-asc">Oldest Edited</option>
-          <option value="length-desc">Longest Text</option>
-          <option value="length-asc">Shortest Text</option>
+          <option value="length-desc" class="sort-text-only hidden">Longest Text</option>
+          <option value="length-asc" class="sort-text-only hidden">Shortest Text</option>
         </select>
-        <select id="filter-select" class="apple-select">
+        <select id="filter-select" class="apple-select hidden">
           <option value="all">All Status</option>
           <option value="learning">Learning</option>
           <option value="familiar">Familiar</option>
@@ -110,7 +116,7 @@
       <button id="btn-start-review" class="btn primary-btn">Practice 15 Cards</button>
     </div>
     <div class="library-header glass" style="margin-top: 20px;">
-      <input type="text" id="vocab-search" class="apple-input search-bar" placeholder="Search vocabulary...">
+      <input type="text" id="vocab-search" class="apple-input search-bar" placeholder="Search vocabulary..." style="margin-bottom: 0;">
     </div>
     <div id="vocab-list" class="vocab-grid"></div>
   </div>
@@ -177,6 +183,23 @@
       <button id="btn-replay" class="btn icon-btn">🔁</button>
       <button id="btn-next" class="btn icon-btn">⏭</button>
       <button id="btn-speak" class="btn icon-btn primary-icon-btn">🎤</button>
+    </div>
+  </div>
+
+  <!-- Folder Selection Modal -->
+  <div id="folder-modal" class="modal-overlay">
+    <div class="modal-content glass">
+      <h3>Select Folder</h3>
+      <p style="font-size: 14px; color: var(--text-muted); margin-bottom: 15px; text-align: center;">Choose a folder to save this text.</p>
+      <select id="folder-select" class="apple-select">
+        <option value="none">Uncategorized (無分類)</option>
+        <option value="new">➕ Create New Folder...</option>
+      </select>
+      <input type="text" id="new-folder-name" class="apple-input hidden" placeholder="New Folder Name">
+      <div class="modal-actions">
+        <button id="btn-cancel-folder" class="btn secondary-btn">Cancel</button>
+        <button id="btn-confirm-folder" class="btn primary-btn">Confirm & Start</button>
+      </div>
     </div>
   </div>
 
@@ -255,8 +278,12 @@
   <!-- Edit Library Text Modal -->
   <div id="edit-lib-modal" class="modal-overlay">
     <div class="modal-content glass">
-      <h3>Edit Text & Status</h3>
-      <textarea id="edit-lib-textarea" class="apple-input" style="height: 180px;"></textarea>
+      <h3>Edit Text</h3>
+      <input type="text" id="edit-lib-title" class="apple-input" placeholder="Title">
+      <select id="edit-lib-folder" class="apple-select">
+        <option value="none">Uncategorized</option>
+      </select>
+      <textarea id="edit-lib-textarea" class="apple-input" style="height: 120px;"></textarea>
       <select id="edit-lib-status" class="apple-select">
         <option value="learning">Learning (不記得)</option>
         <option value="familiar">Familiar (不太熟)</option>

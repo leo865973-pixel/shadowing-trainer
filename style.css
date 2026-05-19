@@ -98,6 +98,14 @@ input:checked + .slider:before { transform: translateX(20px); }
 .lib-text { font-size: 17px; line-height: 1.5; color: var(--text-main); margin-bottom: 12px; font-weight: 500; }
 .lib-meta { display: flex; justify-content: space-between; align-items: center; font-size: 13px; color: var(--text-muted); }
 
+/* Folder Card */
+.folder-card { display: flex; align-items: center; gap: 15px; padding: 20px; border-radius: var(--radius-lg); cursor: pointer; transition: transform 0.3s var(--spring); }
+.folder-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-md); }
+.folder-icon { font-size: 32px; }
+.folder-info { flex: 1; }
+.folder-name { font-size: 18px; font-weight: 700; color: var(--text-main); margin-bottom: 4px; }
+.folder-count { font-size: 13px; color: var(--text-muted); }
+
 /* Vocab Grid & Level Colors */
 .vocab-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 16px; padding-bottom: 40px; }
 .vocab-card { padding: 18px; border-radius: var(--radius-lg); cursor: pointer; transition: 0.3s var(--spring); display: flex; flex-direction: column; align-items: flex-start; gap: 10px; }
@@ -202,17 +210,14 @@ input:checked + .slider:before { transform: translateX(20px); }
 @media (max-width: 768px) {
   body { padding-top: 20px; padding-bottom: 100px; }
   
-  /* Move Nav to Bottom */
   .main-nav { top: auto; bottom: 0; border-top: 1px solid var(--border); border-bottom: none; padding-bottom: env(safe-area-inset-bottom); height: calc(64px + env(safe-area-inset-bottom)); background: rgba(255,255,255,0.85); }
-  .nav-brand { display: none; } /* Hide logo on mobile nav */
+  .nav-brand { display: none; } 
   .nav-tabs { width: 100%; justify-content: space-around; background: transparent; }
   .nav-btn { flex-direction: column; gap: 4px; padding: 8px; font-size: 12px; }
-  .nav-hint { display: none; } /* Hide keyboard hints on mobile */
+  .nav-hint { display: none; } 
   
-  /* Hide Shortcuts on Mobile */
   .shortcut-hints { display: none !important; }
   
-  /* Adjust Sizes */
   .sentence-display { font-size: 26px; }
   .fc-word { font-size: 36px; }
   .kpi-value { font-size: 22px; }

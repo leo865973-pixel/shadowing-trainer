@@ -29,6 +29,7 @@ const tabs = {
   vocab: document.getElementById('tab-vocab')
 };
 
+const textTitle = document.getElementById('text-title');
 const textInput = document.getElementById('text-input');
 const currentSentenceEl = document.getElementById('current-sentence');
 const progressBar = document.getElementById('progress-bar');
@@ -60,6 +61,7 @@ let currentTextId = null;
 let vocabShadowingMode = null; 
 let currentDetailVocabId = null;
 let isVocabSelectionMode = false;
+let currentFolderView = null; // null = root, 'none' = uncategorized, 'id' = specific folder
 
 // --- Custom UI Components ---
 function showToast(msg, type = "success") {
@@ -87,14 +89,16 @@ document.getElementById('btn-confirm-no').onclick = () => {
 // --- Data Storage & Firebase Sync ---
 let library = JSON.parse(localStorage.getItem('shadow_library')) || [];
 let vocabDB = JSON.parse(localStorage.getItem('shadow_vocab')) || [];
+let folders = JSON.parse(localStorage.getItem('shadow_folders')) || [];
 let isFirebaseLoaded = false;
 
 async function syncData() {
   localStorage.setItem('shadow_library', JSON.stringify(library));
   localStorage.setItem('shadow_vocab', JSON.stringify(vocabDB));
+  localStorage.setItem('shadow_folders', JSON.stringify(folders));
   if (!isFirebaseLoaded) return; 
   try {
-    await setDoc(doc(db, "personal_data", "my_data"), { library, vocabDB });
+    await setDoc(doc(db, "personal_data", "my_data"), { library, vocabDB, folders });
   } catch (e) { console.warn("Firebase sync failed", e); }
 }
 
@@ -105,8 +109,10 @@ async function loadFirebaseData() {
       const data = docSnap.data();
       if (data.library && data.library.length > 0) library = data.library;
       if (data.vocabDB && data.vocabDB.length > 0) vocabDB = data.vocabDB;
+      if (data.folders) folders = data.folders;
       localStorage.setItem('shadow_library', JSON.stringify(library));
       localStorage.setItem('shadow_vocab', JSON.stringify(vocabDB));
+      localStorage.setItem('shadow_folders', JSON.stringify(folders));
       renderLibrary();
       renderVocab();
     }
@@ -193,16 +199,29 @@ function updateKPI(type) {
   loadKPIs();
 }
 
-// --- Library System ---
-function saveToLibrary(text) {
+// --- Library System (Folders & Texts) ---
+function saveToLibrary(title, text, folderId) {
   const cleanText = text.trim();
   if (!cleanText) return null;
-  let item = library.find(i => i.text === cleanText);
-  if (!item) {
-    item = { id: 'txt_' + Date.now(), text: cleanText, status: 'learning', createdAt: Date.now(), updatedAt: Date.now(), stats: { attempts: 0 } };
-    library.push(item);
-    syncData();
+  
+  let item = { 
+    id: 'txt_' + Date.now(), 
+    title: title || 'Untitled',
+    text: cleanText, 
+    folderId: folderId === 'none' ? null : folderId,
+    status: 'learning', 
+    createdAt: Date.now(), 
+    updatedAt: Date.now(), 
+    stats: { attempts: 0 } 
+  };
+  library.push(item);
+  
+  if (folderId && folderId !== 'none') {
+    let f = folders.find(f => f.id === folderId);
+    if (f) f.updatedAt = Date.now();
   }
+  
+  syncData();
   return item.id;
 }
 
@@ -210,55 +229,154 @@ function renderLibrary() {
   const q = document.getElementById('search-input').value.toLowerCase();
   const sortQ = document.getElementById('sort-select').value;
   const filterQ = document.getElementById('filter-select').value;
-
-  let filtered = library.filter(i => {
-    const matchSearch = i.text.toLowerCase().includes(q);
-    const matchFilter = filterQ === 'all' || i.status === filterQ;
-    return matchSearch && matchFilter;
-  });
+  const listEl = document.getElementById('library-list');
   
-  filtered.sort((a, b) => {
-    if (sortQ === 'edit-desc') return (b.updatedAt || b.createdAt) - (a.updatedAt || a.createdAt);
-    if (sortQ === 'edit-asc') return (a.updatedAt || a.createdAt) - (b.updatedAt || b.createdAt);
-    if (sortQ === 'length-desc') return b.text.length - a.text.length;
-    if (sortQ === 'length-asc') return a.text.length - b.text.length;
-    return 0;
-  });
+  const btnBack = document.getElementById('btn-lib-back');
+  const filterSelect = document.getElementById('filter-select');
+  const sortSelect = document.getElementById('sort-select');
 
-  document.getElementById('library-list').innerHTML = filtered.map(item => {
-    const dateStr = new Date(item.updatedAt || item.createdAt).toLocaleString();
-    return `
-    <div class="lib-card glass" onclick="loadTextToPractice('${item.id}')">
-      <div class="lib-text">${item.text}</div>
-      <div class="lib-meta">
-        <span class="badge ${item.status}">${item.status}</span>
-        <span>Attempts: ${item.stats?.attempts || 0}</span>
-        <span>${dateStr}</span>
-        <div class="lib-actions" style="display:flex; gap:10px;">
-          <button class="btn icon-text-btn" onclick="openEditLibModal('${item.id}', event)">Edit</button>
-          <button class="btn icon-text-btn" style="color:var(--danger);" onclick="deleteLibraryText('${item.id}', event)">Del</button>
+  if (currentFolderView === null) {
+    // --- FOLDER VIEW ---
+    btnBack.classList.add('hidden');
+    filterSelect.classList.add('hidden');
+    
+    // Hide length sort options
+    Array.from(sortSelect.options).forEach(opt => {
+      if(opt.value.includes('length')) opt.style.display = 'none';
+    });
+    if(sortSelect.value.includes('length')) sortSelect.value = 'edit-desc';
+
+    let filteredFolders = folders.filter(f => f.name.toLowerCase().includes(q));
+    filteredFolders.sort((a, b) => {
+      if (sortSelect.value === 'edit-desc') return b.updatedAt - a.updatedAt;
+      if (sortSelect.value === 'edit-asc') return a.updatedAt - b.updatedAt;
+      return 0;
+    });
+
+    let html = '';
+    
+    // Always show Uncategorized if there are uncategorized texts
+    let uncategorizedCount = library.filter(t => !t.folderId).length;
+    if (uncategorizedCount > 0 && "uncategorized".includes(q)) {
+      html += `
+        <div class="folder-card glass" onclick="enterFolder('none')">
+          <div class="folder-icon">📁</div>
+          <div class="folder-info">
+            <div class="folder-name">Uncategorized</div>
+            <div class="folder-count">${uncategorizedCount} texts</div>
+          </div>
+        </div>
+      `;
+    }
+
+    html += filteredFolders.map(f => {
+      let count = library.filter(t => t.folderId === f.id).length;
+      return `
+        <div class="folder-card glass" onclick="enterFolder('${f.id}')">
+          <div class="folder-icon">📁</div>
+          <div class="folder-info">
+            <div class="folder-name">${f.name}</div>
+            <div class="folder-count">${count} texts</div>
+          </div>
+          <button class="btn icon-btn" style="color:var(--danger); width:40px; height:40px; padding:0;" onclick="deleteFolder('${f.id}', event)">🗑️</button>
+        </div>
+      `;
+    }).join('');
+    
+    listEl.innerHTML = html || '<p style="text-align:center; color:var(--text-muted); margin-top:20px;">No folders found.</p>';
+
+  } else {
+    // --- TEXT VIEW ---
+    btnBack.classList.remove('hidden');
+    filterSelect.classList.remove('hidden');
+    
+    Array.from(sortSelect.options).forEach(opt => { opt.style.display = 'block'; });
+
+    let filtered = library.filter(i => {
+      let matchFolder = currentFolderView === 'none' ? !i.folderId : i.folderId === currentFolderView;
+      let matchSearch = i.text.toLowerCase().includes(q) || (i.title && i.title.toLowerCase().includes(q));
+      let matchFilter = filterQ === 'all' || i.status === filterQ;
+      return matchFolder && matchSearch && matchFilter;
+    });
+    
+    filtered.sort((a, b) => {
+      if (sortSelect.value === 'edit-desc') return (b.updatedAt || b.createdAt) - (a.updatedAt || a.createdAt);
+      if (sortSelect.value === 'edit-asc') return (a.updatedAt || a.createdAt) - (b.updatedAt || b.createdAt);
+      if (sortSelect.value === 'length-desc') return b.text.length - a.text.length;
+      if (sortSelect.value === 'length-asc') return a.text.length - b.text.length;
+      return 0;
+    });
+
+    listEl.innerHTML = filtered.map(item => {
+      const dateStr = new Date(item.updatedAt || item.createdAt).toLocaleString();
+      const displayTitle = item.title && item.title !== 'Untitled' ? item.title : item.text.substring(0, 30) + '...';
+      return `
+      <div class="lib-card glass" onclick="loadTextToPractice('${item.id}')">
+        <div class="lib-text" style="font-weight:700; color:var(--accent); font-size:18px;">${displayTitle}</div>
+        <div class="lib-text" style="font-size:14px; color:var(--text-muted);">${item.text.substring(0, 60)}...</div>
+        <div class="lib-meta">
+          <span class="badge ${item.status}">${item.status}</span>
+          <span>Attempts: ${item.stats?.attempts || 0}</span>
+          <span>${dateStr}</span>
+          <div class="lib-actions" style="display:flex; gap:10px;">
+            <button class="btn icon-text-btn" onclick="openEditLibModal('${item.id}', event)">Edit</button>
+            <button class="btn icon-text-btn" style="color:var(--danger);" onclick="deleteLibraryText('${item.id}', event)">Del</button>
+          </div>
         </div>
       </div>
-    </div>
-  `}).join('');
+    `}).join('');
+  }
 }
+
+window.enterFolder = (id) => {
+  currentFolderView = id;
+  document.getElementById('search-input').value = '';
+  renderLibrary();
+};
+
+document.getElementById('btn-lib-back').onclick = () => {
+  currentFolderView = null;
+  document.getElementById('search-input').value = '';
+  renderLibrary();
+};
+
+window.deleteFolder = (id, event) => {
+  event.stopPropagation();
+  showConfirm("Delete folder? Texts inside will become Uncategorized.", () => {
+    folders = folders.filter(f => f.id !== id);
+    library.forEach(t => { if(t.folderId === id) t.folderId = null; });
+    syncData();
+    renderLibrary();
+    showToast("Folder deleted", "success");
+  });
+};
 
 window.loadTextToPractice = (id) => {
   const item = library.find(i => i.id === id);
   if (item) {
-    currentTextId = id; textInput.value = item.text;
+    currentTextId = id; 
+    textTitle.value = item.title || '';
+    textInput.value = item.text;
     loadKPIs(); switchTab('practice');
   }
 };
 
+// Library Edit & Delete
 let editingLibId = null;
 window.openEditLibModal = (id, event) => {
   event.stopPropagation();
   const item = library.find(i => i.id === id);
   if (item) {
     editingLibId = id;
+    document.getElementById('edit-lib-title').value = item.title || '';
     document.getElementById('edit-lib-textarea').value = item.text;
     document.getElementById('edit-lib-status').value = item.status || 'learning';
+    
+    let folderSelect = document.getElementById('edit-lib-folder');
+    folderSelect.innerHTML = '<option value="none">Uncategorized</option>' + 
+      folders.map(f => `<option value="${f.id}">${f.name}</option>`).join('');
+    folderSelect.value = item.folderId || 'none';
+
     document.getElementById('edit-lib-modal').classList.add('active');
   }
 };
@@ -266,9 +384,18 @@ window.openEditLibModal = (id, event) => {
 document.getElementById('btn-save-lib-edit').onclick = () => {
   const item = library.find(i => i.id === editingLibId);
   if (item) {
+    item.title = document.getElementById('edit-lib-title').value.trim() || 'Untitled';
     item.text = document.getElementById('edit-lib-textarea').value.trim();
     item.status = document.getElementById('edit-lib-status').value;
+    let fid = document.getElementById('edit-lib-folder').value;
+    item.folderId = fid === 'none' ? null : fid;
     item.updatedAt = Date.now();
+    
+    if (item.folderId) {
+      let f = folders.find(f => f.id === item.folderId);
+      if (f) f.updatedAt = Date.now();
+    }
+
     syncData();
     renderLibrary();
     document.getElementById('edit-lib-modal').classList.remove('active');
@@ -375,7 +502,6 @@ currentSentenceEl.addEventListener('mouseup', (e) => {
       document.getElementById('v-example').value = ''; 
       document.getElementById('vocab-modal').classList.add('active');
       
-      // Reset Mode
       isVocabSelectionMode = false;
       btnAddVocab.innerHTML = "➕ Vocab";
       btnAddVocab.style.color = "var(--text-muted)";
@@ -499,6 +625,7 @@ window.jumpToShadowing = (vocabId) => {
   if (!textItem) { showToast("Source text deleted!", "error"); return; }
 
   currentTextId = textItem.id;
+  textTitle.value = textItem.title || '';
   textInput.value = textItem.text;
   sentences = textItem.text.match(/[^.?!]+[.?!]+/g) || textItem.text.split('\n');
   sentences = sentences.map(s => s.trim()).filter(s => s.length > 0);
@@ -637,6 +764,7 @@ tabs.library.onclick = () => switchTab('library');
 tabs.vocab.onclick = () => switchTab('vocab');
 
 document.getElementById('btn-clear-text').addEventListener('click', () => {
+  textTitle.value = '';
   textInput.value = '';
   currentTextId = null;
   localStorage.setItem('totalAttempts', '0');
@@ -644,11 +772,64 @@ document.getElementById('btn-clear-text').addEventListener('click', () => {
   showToast("Text cleared & Attempts reset", "info");
 });
 
+// Folder Selection Logic before Start
+let pendingStartData = null;
 btnStart.addEventListener('click', () => {
+  const title = textTitle.value.trim();
   const rawText = textInput.value.trim();
   if (!rawText) { showToast("Please paste some text first!", "error"); return; }
   
-  currentTextId = saveToLibrary(rawText) || currentTextId;
+  if (!currentTextId) {
+    // New text -> Ask for folder
+    pendingStartData = { title, text: rawText };
+    let fSelect = document.getElementById('folder-select');
+    fSelect.innerHTML = '<option value="none">Uncategorized (無分類)</option><option value="new">➕ Create New Folder...</option>' + 
+      folders.map(f => `<option value="${f.id}">${f.name}</option>`).join('');
+    document.getElementById('new-folder-name').classList.add('hidden');
+    document.getElementById('new-folder-name').value = '';
+    document.getElementById('folder-modal').classList.add('active');
+  } else {
+    // Existing text -> Update and start
+    let item = library.find(i => i.id === currentTextId);
+    if (item) {
+      item.title = title || 'Untitled';
+      item.text = rawText;
+      item.updatedAt = Date.now();
+      syncData();
+    }
+    proceedToTraining(rawText);
+  }
+});
+
+document.getElementById('folder-select').addEventListener('change', (e) => {
+  if (e.target.value === 'new') document.getElementById('new-folder-name').classList.remove('hidden');
+  else document.getElementById('new-folder-name').classList.add('hidden');
+});
+
+document.getElementById('btn-cancel-folder').onclick = () => {
+  document.getElementById('folder-modal').classList.remove('active');
+  pendingStartData = null;
+};
+
+document.getElementById('btn-confirm-folder').onclick = () => {
+  if (!pendingStartData) return;
+  let fSelect = document.getElementById('folder-select').value;
+  let folderId = fSelect;
+  
+  if (fSelect === 'new') {
+    let newName = document.getElementById('new-folder-name').value.trim();
+    if (!newName) { showToast("Folder name required", "error"); return; }
+    folderId = 'fld_' + Date.now();
+    folders.push({ id: folderId, name: newName, createdAt: Date.now(), updatedAt: Date.now() });
+  }
+  
+  currentTextId = saveToLibrary(pendingStartData.title, pendingStartData.text, folderId);
+  document.getElementById('folder-modal').classList.remove('active');
+  proceedToTraining(pendingStartData.text);
+  pendingStartData = null;
+};
+
+function proceedToTraining(rawText) {
   sentences = rawText.match(/[^.?!]+[.?!]+/g) || rawText.split('\n');
   sentences = sentences.map(s => s.trim()).filter(s => s.length > 0);
   
@@ -662,7 +843,7 @@ btnStart.addEventListener('click', () => {
   switchScreen('training');
   window.speechSynthesis.speak(new SpeechSynthesisUtterance(''));
   playCurrentSentence();
-});
+}
 
 btnExit.addEventListener('click', () => {
   window.speechSynthesis.cancel(); if (recognition) recognition.stop(); clearTimeout(timerId);
@@ -709,7 +890,6 @@ function togglePauseResume() {
 btnPause.addEventListener('click', togglePauseResume);
 
 document.addEventListener('keydown', (e) => {
-  // 1. Global Escape for Modals & Selection Mode
   if (e.code === 'Escape') {
     const activeModal = document.querySelector('.modal-overlay.active');
     if (activeModal) {
@@ -717,19 +897,17 @@ document.addEventListener('keydown', (e) => {
       return;
     }
     if (isVocabSelectionMode) {
-      btnAddVocab.click(); // Cancel selection mode
+      btnAddVocab.click(); 
       return;
     }
   }
 
-  // 2. Global Tab Shortcuts (Only if not in input/textarea and not in training)
   if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA' && !screens.training.classList.contains('active')) {
     if (e.code === 'Digit1' || e.code === 'Numpad1') { e.preventDefault(); tabs.practice.click(); return; }
     if (e.code === 'Digit2' || e.code === 'Numpad2') { e.preventDefault(); tabs.library.click(); return; }
     if (e.code === 'Digit3' || e.code === 'Numpad3') { e.preventDefault(); tabs.vocab.click(); return; }
   }
 
-  // 3. Training Screen Shortcuts
   if (!screens.training.classList.contains('active')) return;
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
   
