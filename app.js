@@ -130,7 +130,13 @@ const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecogni
 const recognition = SpeechRecognition ? new SpeechRecognition() : null;
 if (recognition) { recognition.continuous = false; recognition.interimResults = true; }
 
-const LEVEL_CONFIG = { beginner: { rate: 0.8, pauseMs: 3000, autoNext: false }, normal: { rate: 1.0, pauseMs: 2000, autoNext: false }, fluency: { rate: 1.2, pauseMs: 500, autoNext: true } };
+// ✨ 調整了語音速度 (rate) ✨
+const LEVEL_CONFIG = { 
+  beginner: { rate: 0.6, pauseMs: 3000, autoNext: false }, 
+  normal: { rate: 0.8, pauseMs: 2000, autoNext: false }, 
+  fluency: { rate: 1.2, pauseMs: 500, autoNext: true } 
+};
+
 let availableVoices = [];
 let currentAudio = null; 
 
