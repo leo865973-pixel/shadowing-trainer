@@ -57,14 +57,8 @@
       <textarea id="text-input" placeholder="Paste your English text here to start training..."></textarea>
       
       <div class="setup-controls-wrapper">
-        
-        <div style="margin-bottom: 16px;">
-          <label style="font-size: 13px; font-weight: 600; color: var(--text-muted); margin-bottom: 6px; display: block;">Google Cloud TTS API Key (Optional)</label>
-          <input type="password" id="gcp-api-key" class="apple-input" placeholder="AIzaSy..." style="margin-bottom: 0; padding: 12px 16px; font-size: 14px;">
-        </div>
-
         <div class="voice-settings">
-          <label for="voice-select" style="font-size: 13px; font-weight: 600; color: var(--text-muted); margin-bottom: 6px; display: block;">Voice Engine</label>
+          <label for="voice-select">Voice Engine</label>
           <select id="voice-select" class="apple-select"><option>Loading voices...</option></select>
         </div>
         
@@ -81,7 +75,7 @@
           <label class="radio-card"><input type="radio" name="level" value="normal"> <span>Normal</span></label>
           <label class="radio-card"><input type="radio" name="level" value="fluency"> <span>Fluency</span></label>
         </div>
-        <button id="btn-start" class="btn primary-btn">Start Training</button>
+        <button id="btn-start" class="btn primary-btn">Start Training (Space)</button>
       </div>
     </div>
   </div>
@@ -97,8 +91,6 @@
         <select id="sort-select" class="apple-select">
           <option value="edit-desc">Newest Edited</option>
           <option value="edit-asc">Oldest Edited</option>
-          <option value="alpha-asc">Title/Name (A-Z)</option>
-          <option value="alpha-desc">Title/Name (Z-A)</option>
           <option value="length-desc" class="sort-text-only hidden">Longest Text</option>
           <option value="length-asc" class="sort-text-only hidden">Shortest Text</option>
         </select>
@@ -124,14 +116,6 @@
     </div>
     <div class="library-header glass" style="margin-top: 20px;">
       <input type="text" id="vocab-search" class="apple-input search-bar" placeholder="Search vocabulary..." style="margin-bottom: 0;">
-      <div class="filter-group">
-        <select id="vocab-sort-select" class="apple-select">
-          <option value="newest">Newest Added</option>
-          <option value="oldest">Oldest Added</option>
-          <option value="alpha-asc">Word (A-Z)</option>
-          <option value="alpha-desc">Word (Z-A)</option>
-        </select>
-      </div>
     </div>
     <div id="vocab-list" class="vocab-grid"></div>
   </div>
