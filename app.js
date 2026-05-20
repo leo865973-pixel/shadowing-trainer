@@ -132,9 +132,8 @@ if (recognition) { recognition.continuous = false; recognition.interimResults = 
 
 const LEVEL_CONFIG = { beginner: { rate: 0.8, pauseMs: 3000, autoNext: false }, normal: { rate: 1.0, pauseMs: 2000, autoNext: false }, fluency: { rate: 1.2, pauseMs: 500, autoNext: true } };
 let availableVoices = [];
-let currentAudio = null; // For GCP Audio object
+let currentAudio = null; 
 
-// Load GCP Key
 const savedGcpKey = localStorage.getItem('gcp_tts_key') || '';
 gcpApiKeyInput.value = savedGcpKey;
 
@@ -149,7 +148,6 @@ function populateVoices() {
   voiceSelect.innerHTML = '';
   
   if (gcpKey) {
-    // Hardcode best GCP voices to save API calls
     const gcpVoices = [
       { name: '⭐ US Journey (Female)', uri: 'en-US-Journey-F' },
       { name: '⭐ US Journey (Male)', uri: 'en-US-Journey-D' },
@@ -160,7 +158,6 @@ function populateVoices() {
     ];
     gcpVoices.forEach(v => voiceSelect.add(new Option(v.name, v.uri)));
   } else {
-    // Fallback to Browser Voices
     availableVoices = window.speechSynthesis.getVoices();
     const enVoices = availableVoices.filter(v => v.lang.startsWith('en'));
     if (enVoices.length > 0) {
@@ -195,7 +192,6 @@ async function playTextAudio(text, onEndCallback) {
   const rate = LEVEL_CONFIG[mode] ? LEVEL_CONFIG[mode].rate : 1.0;
 
   if (gcpKey && selectedVoiceURI.includes('-')) {
-    // Use GCP TTS
     try {
       const response = await fetch(`https://texttospeech.googleapis.com/v1/text:synthesize?key=${gcpKey}`, {
         method: 'POST',
@@ -218,7 +214,6 @@ async function playTextAudio(text, onEndCallback) {
       if (onEndCallback) onEndCallback();
     }
   } else {
-    // Use Browser TTS
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = 'en-US'; 
     utterance.rate = rate;
@@ -320,14 +315,20 @@ function renderLibrary() {
     filterSelect.classList.add('hidden');
     
     Array.from(sortSelect.options).forEach(opt => {
-      if(opt.value.includes('length') || opt.value.includes('alpha')) opt.style.display = 'none';
+      if(opt.value.includes('length')) {
+        opt.style.display = 'none';
+      } else {
+        opt.style.display = 'block'; 
+      }
     });
-    if(sortSelect.value.includes('length') || sortSelect.value.includes('alpha')) sortSelect.value = 'edit-desc';
+    if(sortSelect.value.includes('length')) sortSelect.value = 'edit-desc';
 
     let filteredFolders = folders.filter(f => f.name.toLowerCase().includes(q));
     filteredFolders.sort((a, b) => {
       if (sortSelect.value === 'edit-desc') return b.updatedAt - a.updatedAt;
       if (sortSelect.value === 'edit-asc') return a.updatedAt - b.updatedAt;
+      if (sortSelect.value === 'alpha-asc') return a.name.localeCompare(b.name);
+      if (sortSelect.value === 'alpha-desc') return b.name.localeCompare(a.name);
       return 0;
     });
 
@@ -532,7 +533,19 @@ function renderVocab() {
   document.getElementById('vocab-weak').innerText = weakCount;
 
   const q = document.getElementById('vocab-search').value.toLowerCase();
-  document.getElementById('vocab-list').innerHTML = vocabDB.filter(v => v.word.toLowerCase().includes(q)).map(v => `
+  const sortQ = document.getElementById('vocab-sort-select').value;
+
+  let filteredVocab = vocabDB.filter(v => v.word.toLowerCase().includes(q));
+
+  filteredVocab.sort((a, b) => {
+    if (sortQ === 'newest') return b.addedAt - a.addedAt;
+    if (sortQ === 'oldest') return a.addedAt - b.addedAt;
+    if (sortQ === 'alpha-asc') return a.word.localeCompare(b.word);
+    if (sortQ === 'alpha-desc') return b.word.localeCompare(a.word);
+    return 0;
+  });
+
+  document.getElementById('vocab-list').innerHTML = filteredVocab.map(v => `
     <div class="vocab-card glass lvl-${v.level}" onclick="openVocabDetail('${v.id}')">
       <span class="vc-word">${v.word}</span>
       <span class="badge ${v.pos || 'noun'}">${v.pos || 'noun'}</span>
@@ -658,6 +671,8 @@ document.getElementById('btn-save-ev').onclick = () => {
     showToast("Vocabulary updated", "success");
   }
 };
+
+document.getElementById('vocab-sort-select').addEventListener('change', renderVocab);
 
 // SRS Review Logic
 let reviewQueue = [];
