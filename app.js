@@ -39,6 +39,7 @@ const userTranscript = document.getElementById('user-transcript');
 const voiceSelect = document.getElementById('voice-select');
 const chkContinuous = document.getElementById('chk-continuous');
 const gcpApiKeyInput = document.getElementById('gcp-api-key');
+const trainingSpeed = document.getElementById('training-speed');
 
 const btnStart = document.getElementById('btn-start');
 const btnExit = document.getElementById('btn-exit');
@@ -58,6 +59,7 @@ let timerId = null;
 let isPaused = false;
 let showMarkup = false;
 let isContinuous = false;
+let currentRate = 0.8;
 let currentTextId = null; 
 let currentTextTitle = 'Untitled';
 let vocabShadowingMode = null; 
@@ -130,13 +132,7 @@ const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecogni
 const recognition = SpeechRecognition ? new SpeechRecognition() : null;
 if (recognition) { recognition.continuous = false; recognition.interimResults = true; }
 
-// ✨ 調整了語音速度 (rate) ✨
-const LEVEL_CONFIG = { 
-  beginner: { rate: 0.6, pauseMs: 3000, autoNext: false }, 
-  normal: { rate: 0.8, pauseMs: 2000, autoNext: false }, 
-  fluency: { rate: 1.2, pauseMs: 500, autoNext: true } 
-};
-
+const LEVEL_CONFIG = { beginner: { rate: 0.6, pauseMs: 3000, autoNext: false }, normal: { rate: 0.8, pauseMs: 2000, autoNext: false }, fluency: { rate: 1.2, pauseMs: 500, autoNext: true } };
 let availableVoices = [];
 let currentAudio = null; 
 
@@ -195,7 +191,7 @@ async function playTextAudio(text, onEndCallback) {
   stopAllAudio();
   const gcpKey = localStorage.getItem('gcp_tts_key');
   const selectedVoiceURI = voiceSelect.value;
-  const rate = LEVEL_CONFIG[mode] ? LEVEL_CONFIG[mode].rate : 1.0;
+  const rate = currentRate;
 
   if (gcpKey && selectedVoiceURI.includes('-')) {
     try {
@@ -765,6 +761,12 @@ window.jumpToShadowing = (vocabId) => {
   document.getElementById('btn-exit').classList.add('hidden');
   
   document.getElementById('training-title').innerText = currentTextTitle;
+  
+  // 確保跳轉時語速與 UI 同步
+  mode = document.querySelector('input[name="level"]:checked').value;
+  currentRate = LEVEL_CONFIG[mode].rate;
+  trainingSpeed.value = currentRate.toString();
+  
   playCurrentSentence();
 };
 
@@ -966,6 +968,10 @@ function proceedToTraining(rawText) {
   document.getElementById('btn-return-vocab').classList.add('hidden');
   document.getElementById('btn-exit').classList.remove('hidden');
 
+  // ✨ 初始化語速 ✨
+  currentRate = LEVEL_CONFIG[mode].rate;
+  trainingSpeed.value = currentRate.toString();
+
   switchScreen('training');
   document.getElementById('training-title').innerText = currentTextTitle;
   playCurrentSentence();
@@ -980,6 +986,15 @@ btnToggleMarkup.addEventListener('click', () => {
   showMarkup = !showMarkup;
   btnToggleMarkup.style.color = showMarkup ? 'var(--accent)' : 'var(--text-muted)';
   if (sentences.length > 0) currentSentenceEl.innerHTML = analyzeSentence(sentences[currentIndex], showMarkup);
+});
+
+// ✨ 即時語速調整事件 ✨
+trainingSpeed.addEventListener('change', (e) => {
+  currentRate = parseFloat(e.target.value);
+  showToast(`Speed set to ${currentRate}x`, "info");
+  if (!isPaused && (window.speechSynthesis.speaking || currentAudio)) {
+    playCurrentSentence();
+  }
 });
 
 btnNext.addEventListener('click', () => { if (currentIndex < sentences.length - 1) { currentIndex++; playCurrentSentence(); } });

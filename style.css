@@ -65,7 +65,10 @@ textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 4px rgba(0, 122,
 /* Apple Style Inputs & Selects */
 .apple-input, .apple-select { width: 100%; padding: 16px 20px; border-radius: var(--radius-md); border: 1px solid var(--border); background: var(--surface-solid); font-size: 16px; margin-bottom: 16px; outline: none; transition: all 0.3s var(--spring); }
 .apple-input:focus, .apple-select:focus { border-color: var(--accent); box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.15); }
-.search-bar { font-size: 18px; padding: 20px 24px; border-radius: 20px; font-weight: 500; }
+
+/* Prominent Search Boxes */
+.search-bar { width: 100%; padding: 20px 24px; font-size: 18px; border-radius: 20px; background: #ffffff; border: 2px solid var(--accent); box-shadow: 0 4px 12px rgba(0, 113, 227, 0.1); font-weight: 500; outline: none; transition: all 0.3s ease; }
+.search-bar:focus { box-shadow: 0 6px 20px rgba(0, 113, 227, 0.25); transform: translateY(-1px); }
 
 /* Toggle Switch */
 .continuous-toggle { margin-bottom: 24px; display: flex; align-items: center; justify-content: space-between; background: var(--surface-solid); padding: 16px 20px; border-radius: var(--radius-md); border: 1px solid var(--border); }
@@ -90,6 +93,10 @@ input:checked + .slider:before { transform: translateX(20px); }
 .secondary-btn { background: rgba(118, 118, 128, 0.12); color: var(--text-main); padding: 16px 24px; flex: 1; }
 .icon-text-btn { background: transparent; color: var(--text-muted); font-size: 15px; padding: 10px 16px; border-radius: 12px; }
 .icon-text-btn:hover { background: rgba(118, 118, 128, 0.12); color: var(--text-main); }
+
+/* Speed Select */
+.speed-select { background: transparent; color: var(--text-muted); font-size: 15px; font-weight: 600; border: none; outline: none; cursor: pointer; padding: 10px 12px; border-radius: 12px; appearance: none; text-align: center; transition: 0.2s var(--spring); }
+.speed-select:hover { background: rgba(118, 118, 128, 0.12); color: var(--text-main); }
 
 /* Library & Vocab Lists */
 .library-header { padding: 20px; border-radius: var(--radius-lg); margin-bottom: 20px; }

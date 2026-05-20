@@ -70,7 +70,7 @@
         </div>
         
         <div class="continuous-toggle">
-          <span style="font-size: 15px; font-weight: 600; color: var(--text-main);">Continuous Full-Text</span>
+          <span style="font-size: 15px; font-weight: 600; color: var(--text-main);">Continuous Full-Text (一口氣全文)</span>
           <label class="switch">
             <input type="checkbox" id="chk-continuous">
             <span class="slider round"></span>
@@ -170,9 +170,19 @@
   <!-- 畫面 5：TRAINING SCREEN -->
   <div id="training-screen" class="screen">
     <header class="training-header glass">
-      <button id="btn-exit" class="btn icon-text-btn">✕ Exit</button>
-      <button id="btn-return-vocab" class="btn icon-text-btn hidden" style="color: var(--accent);">🔙 Back</button>
-      <button id="btn-toggle-markup" class="btn icon-text-btn">👁️ Parse</button>
+      <div style="display: flex; gap: 4px; align-items: center;">
+        <button id="btn-exit" class="btn icon-text-btn">✕ Exit</button>
+        <button id="btn-return-vocab" class="btn icon-text-btn hidden" style="color: var(--accent);">🔙 Back</button>
+        <!-- 即時語速調整 -->
+        <select id="training-speed" class="speed-select">
+          <option value="0.6">0.6x</option>
+          <option value="0.8">0.8x</option>
+          <option value="1.0">1.0x</option>
+          <option value="1.2">1.2x</option>
+          <option value="1.5">1.5x</option>
+        </select>
+        <button id="btn-toggle-markup" class="btn icon-text-btn">👁️ Parse</button>
+      </div>
       <div class="progress-container"><div id="progress-bar" class="progress-bar"></div></div>
       <button id="btn-add-vocab" class="btn icon-text-btn">➕ Vocab</button>
     </header>
