@@ -10,10 +10,8 @@
 </head>
 <body>
 
-  <!-- 自訂 Toast 提示訊息 -->
   <div id="custom-toast" class="toast hidden">Message</div>
 
-  <!-- 自訂 Confirm 確認視窗 -->
   <div id="confirm-modal" class="modal-overlay">
     <div class="modal-content glass" style="text-align: center;">
       <h3 id="confirm-msg" style="margin-bottom: 25px; font-size: 18px;">Are you sure?</h3>
@@ -24,7 +22,6 @@
     </div>
   </div>
 
-  <!-- 導覽列 -->
   <nav class="main-nav glass">
     <div class="nav-brand">ShadowPro</div>
     <div class="nav-tabs">
@@ -57,8 +54,15 @@
       <textarea id="text-input" placeholder="Paste your English text here to start training..."></textarea>
       
       <div class="setup-controls-wrapper">
+        
+        <!-- Google TTS API Key 輸入框 -->
+        <div style="margin-bottom: 16px;">
+          <label style="font-size: 13px; font-weight: 600; color: var(--text-muted); margin-bottom: 6px; display: block;">Google Cloud TTS API Key (Optional)</label>
+          <input type="password" id="gcp-api-key" class="apple-input" placeholder="AIzaSy..." style="margin-bottom: 0; padding: 12px 16px; font-size: 14px;">
+        </div>
+
         <div class="voice-settings">
-          <label for="voice-select">Voice Engine</label>
+          <label for="voice-select" style="font-size: 13px; font-weight: 600; color: var(--text-muted); margin-bottom: 6px; display: block;">Voice Engine</label>
           <select id="voice-select" class="apple-select"><option>Loading voices...</option></select>
         </div>
         
@@ -91,6 +95,8 @@
         <select id="sort-select" class="apple-select">
           <option value="edit-desc">Newest Edited</option>
           <option value="edit-asc">Oldest Edited</option>
+          <option value="alpha-asc" class="sort-text-only hidden">Title (A-Z)</option>
+          <option value="alpha-desc" class="sort-text-only hidden">Title (Z-A)</option>
           <option value="length-desc" class="sort-text-only hidden">Longest Text</option>
           <option value="length-asc" class="sort-text-only hidden">Shortest Text</option>
         </select>
@@ -105,7 +111,7 @@
     <div id="library-list" class="library-list"></div>
   </div>
 
-  <!-- 畫面 3：VOCAB SCREEN (單字庫) -->
+  <!-- 畫面 3：VOCAB SCREEN -->
   <div id="vocab-screen" class="screen">
     <div class="vocab-dashboard glass">
       <div class="vocab-stats">
@@ -120,7 +126,7 @@
     <div id="vocab-list" class="vocab-grid"></div>
   </div>
 
-  <!-- 畫面 4：REVIEW SCREEN (SRS 複習卡片) -->
+  <!-- 畫面 4：REVIEW SCREEN -->
   <div id="review-screen" class="screen">
     <header class="training-header glass">
       <button id="btn-exit-review" class="btn icon-text-btn">✕ Exit</button>
