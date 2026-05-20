@@ -38,6 +38,7 @@ const statusText = document.getElementById('status-text');
 const userTranscript = document.getElementById('user-transcript');
 const voiceSelect = document.getElementById('voice-select');
 const chkContinuous = document.getElementById('chk-continuous');
+const gcpApiKeyInput = document.getElementById('gcp-api-key');
 
 const btnStart = document.getElementById('btn-start');
 const btnExit = document.getElementById('btn-exit');
@@ -124,32 +125,104 @@ async function loadFirebaseData() {
   }
 }
 
-// Speech Recognition & Synthesis
+// --- Speech Engine (GCP + Browser Fallback) ---
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 const recognition = SpeechRecognition ? new SpeechRecognition() : null;
 if (recognition) { recognition.continuous = false; recognition.interimResults = true; }
 
 const LEVEL_CONFIG = { beginner: { rate: 0.8, pauseMs: 3000, autoNext: false }, normal: { rate: 1.0, pauseMs: 2000, autoNext: false }, fluency: { rate: 1.2, pauseMs: 500, autoNext: true } };
 let availableVoices = [];
+let currentAudio = null; 
+
+const savedGcpKey = localStorage.getItem('gcp_tts_key') || '';
+gcpApiKeyInput.value = savedGcpKey;
+
+gcpApiKeyInput.addEventListener('change', (e) => {
+  localStorage.setItem('gcp_tts_key', e.target.value.trim());
+  populateVoices();
+  showToast("API Key saved", "success");
+});
 
 function populateVoices() {
-  availableVoices = window.speechSynthesis.getVoices();
-  const enVoices = availableVoices.filter(v => v.lang.startsWith('en'));
-  if (enVoices.length > 0) {
-    voiceSelect.innerHTML = '';
-    enVoices.forEach(v => {
-      let label = v.name;
-      if (label.includes('Natural') || label.includes('Online')) label = '⭐ ' + label;
-      voiceSelect.add(new Option(label, v.voiceURI));
-    });
-  } else if (availableVoices.length > 0) {
-    voiceSelect.innerHTML = '';
-    availableVoices.forEach(v => voiceSelect.add(new Option(v.name, v.voiceURI)));
+  const gcpKey = localStorage.getItem('gcp_tts_key');
+  voiceSelect.innerHTML = '';
+  
+  if (gcpKey) {
+    const gcpVoices = [
+      { name: '⭐ US Journey (Female)', uri: 'en-US-Journey-F' },
+      { name: '⭐ US Journey (Male)', uri: 'en-US-Journey-D' },
+      { name: '⭐ US Neural2 (Female)', uri: 'en-US-Neural2-F' },
+      { name: '⭐ US Neural2 (Male)', uri: 'en-US-Neural2-J' },
+      { name: '⭐ UK Neural2 (Female)', uri: 'en-GB-Neural2-A' },
+      { name: '⭐ UK Neural2 (Male)', uri: 'en-GB-Neural2-B' }
+    ];
+    gcpVoices.forEach(v => voiceSelect.add(new Option(v.name, v.uri)));
+  } else {
+    availableVoices = window.speechSynthesis.getVoices();
+    const enVoices = availableVoices.filter(v => v.lang.startsWith('en'));
+    if (enVoices.length > 0) {
+      enVoices.forEach(v => {
+        let label = v.name;
+        if (label.includes('Natural') || label.includes('Online')) label = '⭐ ' + label;
+        voiceSelect.add(new Option(label, v.voiceURI));
+      });
+    } else if (availableVoices.length > 0) {
+      availableVoices.forEach(v => voiceSelect.add(new Option(v.name, v.voiceURI)));
+    } else {
+      voiceSelect.add(new Option("Loading browser voices...", ""));
+    }
   }
 }
 window.speechSynthesis.onvoiceschanged = populateVoices;
 populateVoices();
 setTimeout(populateVoices, 500);
+
+function stopAllAudio() {
+  window.speechSynthesis.cancel();
+  if (currentAudio) {
+    currentAudio.pause();
+    currentAudio = null;
+  }
+}
+
+async function playTextAudio(text, onEndCallback) {
+  stopAllAudio();
+  const gcpKey = localStorage.getItem('gcp_tts_key');
+  const selectedVoiceURI = voiceSelect.value;
+  const rate = LEVEL_CONFIG[mode] ? LEVEL_CONFIG[mode].rate : 1.0;
+
+  if (gcpKey && selectedVoiceURI.includes('-')) {
+    try {
+      const response = await fetch(`https://texttospeech.googleapis.com/v1/text:synthesize?key=${gcpKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          input: { text: text },
+          voice: { languageCode: selectedVoiceURI.substring(0, 5), name: selectedVoiceURI },
+          audioConfig: { audioEncoding: 'MP3', speakingRate: rate }
+        })
+      });
+      const data = await response.json();
+      if (data.error) throw new Error(data.error.message);
+      
+      currentAudio = new Audio("data:audio/mp3;base64," + data.audioContent);
+      currentAudio.onended = onEndCallback;
+      currentAudio.play();
+    } catch (err) {
+      showToast("GCP TTS Error. Check API Key.", "error");
+      console.error(err);
+      if (onEndCallback) onEndCallback();
+    }
+  } else {
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'en-US'; 
+    utterance.rate = rate;
+    const v = availableVoices.find(v => v.voiceURI === selectedVoiceURI);
+    if (v) utterance.voice = v;
+    utterance.onend = onEndCallback;
+    window.speechSynthesis.speak(utterance);
+  }
+}
 
 // --- KPI System ---
 function loadKPIs() {
@@ -460,7 +533,19 @@ function renderVocab() {
   document.getElementById('vocab-weak').innerText = weakCount;
 
   const q = document.getElementById('vocab-search').value.toLowerCase();
-  document.getElementById('vocab-list').innerHTML = vocabDB.filter(v => v.word.toLowerCase().includes(q)).map(v => `
+  const sortQ = document.getElementById('vocab-sort-select').value;
+
+  let filteredVocab = vocabDB.filter(v => v.word.toLowerCase().includes(q));
+
+  filteredVocab.sort((a, b) => {
+    if (sortQ === 'newest') return b.addedAt - a.addedAt;
+    if (sortQ === 'oldest') return a.addedAt - b.addedAt;
+    if (sortQ === 'alpha-asc') return a.word.localeCompare(b.word);
+    if (sortQ === 'alpha-desc') return b.word.localeCompare(a.word);
+    return 0;
+  });
+
+  document.getElementById('vocab-list').innerHTML = filteredVocab.map(v => `
     <div class="vocab-card glass lvl-${v.level}" onclick="openVocabDetail('${v.id}')">
       <span class="vc-word">${v.word}</span>
       <span class="badge ${v.pos || 'noun'}">${v.pos || 'noun'}</span>
@@ -499,11 +584,7 @@ window.openVocabDetail = (id) => {
 };
 
 window.playVoice = (text) => {
-  window.speechSynthesis.cancel();
-  const u = new SpeechSynthesisUtterance(text);
-  const v = availableVoices.find(v => v.voiceURI === voiceSelect.value);
-  if (v) u.voice = v;
-  window.speechSynthesis.speak(u);
+  playTextAudio(text);
 };
 
 // --- Vocab Selection Mode ---
@@ -590,6 +671,8 @@ document.getElementById('btn-save-ev').onclick = () => {
     showToast("Vocabulary updated", "success");
   }
 };
+
+document.getElementById('vocab-sort-select').addEventListener('change', renderVocab);
 
 // SRS Review Logic
 let reviewQueue = [];
@@ -680,7 +763,7 @@ window.jumpToShadowing = (vocabId) => {
 };
 
 document.getElementById('btn-return-vocab').onclick = () => {
-  window.speechSynthesis.cancel(); clearTimeout(timerId);
+  stopAllAudio(); clearTimeout(timerId);
   const returnId = vocabShadowingMode.wordId;
   vocabShadowingMode = null;
   document.getElementById('btn-return-vocab').classList.add('hidden');
@@ -731,7 +814,7 @@ function setMetronomeState(state) {
 }
 
 function playCurrentSentence() {
-  clearTimeout(timerId); window.speechSynthesis.cancel(); if (recognition) recognition.stop();
+  clearTimeout(timerId); stopAllAudio(); if (recognition) recognition.stop();
   isPaused = false; btnPause.innerText = "⏸";
 
   const text = sentences[currentIndex];
@@ -740,12 +823,8 @@ function playCurrentSentence() {
   progressBar.style.width = `${((currentIndex + 1) / sentences.length) * 100}%`;
 
   setMetronomeState('listening');
-  const utterance = new SpeechSynthesisUtterance(text);
-  utterance.lang = 'en-US'; utterance.rate = LEVEL_CONFIG[mode].rate;
-  const v = availableVoices.find(v => v.voiceURI === voiceSelect.value);
-  if (v) utterance.voice = v;
-
-  utterance.onend = () => {
+  
+  playTextAudio(text, () => {
     updateKPI('totalAttempts');
     addDoc(collection(db, "sessions"), { sentence: text, mode: mode, timestamp: Date.now(), sessionId: sessionId }).catch(()=>{});
     
@@ -761,8 +840,7 @@ function playCurrentSentence() {
       setMetronomeState('paused');
       timerId = setTimeout(startRecording, LEVEL_CONFIG[mode].pauseMs);
     }
-  };
-  window.speechSynthesis.speak(utterance);
+  });
 }
 
 function startRecording() {
@@ -888,7 +966,7 @@ function proceedToTraining(rawText) {
 }
 
 btnExit.addEventListener('click', () => {
-  window.speechSynthesis.cancel(); if (recognition) recognition.stop(); clearTimeout(timerId);
+  stopAllAudio(); if (recognition) recognition.stop(); clearTimeout(timerId);
   switchScreen('setup'); loadKPIs();
 });
 
@@ -901,7 +979,7 @@ btnToggleMarkup.addEventListener('click', () => {
 btnNext.addEventListener('click', () => { if (currentIndex < sentences.length - 1) { currentIndex++; playCurrentSentence(); } });
 btnBack.addEventListener('click', () => { if (currentIndex > 0) { currentIndex--; playCurrentSentence(); } });
 btnReplay.addEventListener('click', playCurrentSentence);
-btnSpeak.addEventListener('click', () => { window.speechSynthesis.cancel(); clearTimeout(timerId); startRecording(); });
+btnSpeak.addEventListener('click', () => { stopAllAudio(); clearTimeout(timerId); startRecording(); });
 
 currentSentenceEl.addEventListener('click', (e) => {
   if (isVocabSelectionMode) return; 
@@ -915,18 +993,20 @@ currentSentenceEl.addEventListener('click', (e) => {
     let w = words[i], nw = words[i+1] ? words[i+1].replace(/[^\w]/g, '').toLowerCase() : '';
     if (w.match(/[,.;:!?]/) || (nw && ['and','but','or','because','if','when'].includes(nw)) || i === words.length - 1) { endIndex = i; break; }
   }
-  window.speechSynthesis.cancel();
-  const utterance = new SpeechSynthesisUtterance(words.slice(startIndex, endIndex + 1).join(' '));
-  utterance.lang = 'en-US'; utterance.rate = LEVEL_CONFIG[mode].rate;
-  const selectedVoice = availableVoices.find(v => v.voiceURI === voiceSelect.value);
-  if (selectedVoice) utterance.voice = selectedVoice;
-  window.speechSynthesis.speak(utterance);
+  playTextAudio(words.slice(startIndex, endIndex + 1).join(' '));
 });
 
 function togglePauseResume() {
-  if (window.speechSynthesis.speaking) {
-    if (isPaused) { window.speechSynthesis.resume(); isPaused = false; btnPause.innerText = "⏸"; statusText.innerText = "🎧 LISTEN"; statusText.style.color = 'var(--accent)'; }
-    else { window.speechSynthesis.pause(); isPaused = true; btnPause.innerText = "▶️"; statusText.innerText = "⏸ PAUSED"; statusText.style.color = 'var(--text-muted)'; }
+  const isSpeaking = currentAudio ? !currentAudio.paused : window.speechSynthesis.speaking;
+  
+  if (isSpeaking || isPaused) {
+    if (isPaused) { 
+      if (currentAudio) currentAudio.play(); else window.speechSynthesis.resume(); 
+      isPaused = false; btnPause.innerText = "⏸"; statusText.innerText = "🎧 LISTEN"; statusText.style.color = 'var(--accent)'; 
+    } else { 
+      if (currentAudio) currentAudio.pause(); else window.speechSynthesis.pause(); 
+      isPaused = true; btnPause.innerText = "▶️"; statusText.innerText = "⏸ PAUSED"; statusText.style.color = 'var(--text-muted)'; 
+    }
   }
 }
 btnPause.addEventListener('click', togglePauseResume);
