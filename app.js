@@ -54,12 +54,12 @@ const btnAddVocab = document.getElementById('btn-add-vocab');
 // State
 let sentences = [];
 let currentIndex = 0;
-let mode = 'beginner';
+let mode = 'normal'; // 預設改為 normal
 let timerId = null;
 let isPaused = false;
 let showMarkup = false;
 let isContinuous = false;
-let currentRate = 0.8;
+let currentRate = 0.8; // Normal 預設速度
 let currentTextId = null; 
 let currentTextTitle = 'Untitled';
 let vocabShadowingMode = null; 
@@ -151,14 +151,15 @@ function populateVoices() {
   
   if (gcpKey) {
     const gcpVoices = [
-      { name: '⭐ US Journey (Female)', uri: 'en-US-Journey-F' },
-      { name: '⭐ US Journey (Male)', uri: 'en-US-Journey-D' },
-      { name: '⭐ US Neural2 (Female)', uri: 'en-US-Neural2-F' },
       { name: '⭐ US Neural2 (Male)', uri: 'en-US-Neural2-J' },
-      { name: '⭐ UK Neural2 (Female)', uri: 'en-GB-Neural2-A' },
-      { name: '⭐ UK Neural2 (Male)', uri: 'en-GB-Neural2-B' }
+      { name: '⭐ US Neural2 (Female)', uri: 'en-US-Neural2-F' },
+      { name: '⭐ US Journey (Male)', uri: 'en-US-Journey-D' },
+      { name: '⭐ US Journey (Female)', uri: 'en-US-Journey-F' },
+      { name: '⭐ UK Neural2 (Male)', uri: 'en-GB-Neural2-B' },
+      { name: '⭐ UK Neural2 (Female)', uri: 'en-GB-Neural2-A' }
     ];
     gcpVoices.forEach(v => voiceSelect.add(new Option(v.name, v.uri)));
+    voiceSelect.value = 'en-US-Neural2-J'; // 預設選中
   } else {
     availableVoices = window.speechSynthesis.getVoices();
     const enVoices = availableVoices.filter(v => v.lang.startsWith('en'));
@@ -183,12 +184,13 @@ function stopAllAudio() {
   window.speechSynthesis.cancel();
   if (currentAudio) {
     currentAudio.pause();
+    currentAudio.currentTime = 0;
     currentAudio = null;
   }
 }
 
 async function playTextAudio(text, onEndCallback) {
-  stopAllAudio();
+  stopAllAudio(); // 確保不會重疊播放
   const gcpKey = localStorage.getItem('gcp_tts_key');
   const selectedVoiceURI = voiceSelect.value;
   const rate = currentRate;
@@ -762,7 +764,6 @@ window.jumpToShadowing = (vocabId) => {
   
   document.getElementById('training-title').innerText = currentTextTitle;
   
-  // 確保跳轉時語速與 UI 同步
   mode = document.querySelector('input[name="level"]:checked').value;
   currentRate = LEVEL_CONFIG[mode].rate;
   trainingSpeed.value = currentRate.toString();
@@ -968,7 +969,6 @@ function proceedToTraining(rawText) {
   document.getElementById('btn-return-vocab').classList.add('hidden');
   document.getElementById('btn-exit').classList.remove('hidden');
 
-  // ✨ 初始化語速 ✨
   currentRate = LEVEL_CONFIG[mode].rate;
   trainingSpeed.value = currentRate.toString();
 
@@ -988,7 +988,6 @@ btnToggleMarkup.addEventListener('click', () => {
   if (sentences.length > 0) currentSentenceEl.innerHTML = analyzeSentence(sentences[currentIndex], showMarkup);
 });
 
-// ✨ 即時語速調整事件 ✨
 trainingSpeed.addEventListener('change', (e) => {
   currentRate = parseFloat(e.target.value);
   showToast(`Speed set to ${currentRate}x`, "info");
